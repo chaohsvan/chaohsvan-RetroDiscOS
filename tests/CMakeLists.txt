@@ -50,3 +50,8 @@ add_executable(retrodisc_test_theme test_theme.cpp)
 target_link_libraries(retrodisc_test_theme PRIVATE retrodisc_core)
 target_include_directories(retrodisc_test_theme PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME theme COMMAND retrodisc_test_theme)
+
+add_executable(retrodisc_test_brightness test_brightness.cpp)
+target_link_libraries(retrodisc_test_brightness PRIVATE retrodisc_core)
+target_include_directories(retrodisc_test_brightness PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME brightness COMMAND retrodisc_test_brightness)

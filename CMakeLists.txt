@@ -59,6 +59,8 @@ add_library(retrodisc_core STATIC
   src/display/text_renderer.cpp
   src/display/theme.cpp
   src/display/theme_manager.cpp
+  src/display/brightness.cpp
+  src/display/backlight.cpp
   src/ui/main_screen.cpp
 )
 target_include_directories(retrodisc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)

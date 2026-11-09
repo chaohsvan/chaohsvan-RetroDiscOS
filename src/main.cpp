@@ -14,6 +14,9 @@
 #include "core/player_core.h"
 #include "core/state_store.h"
 #include "core/version.h"
+#include "display/backlight.h"
+#include "display/brightness.h"
+#include "display/display_power.h"
 #include "display/theme_manager.h"
 #include "input/key_mapping.h"
 #include "ui/main_screen.h"
@@ -29,6 +32,7 @@ struct Options {
     std::string configDir = "config";
     std::string theme;
     std::string screenshot;
+    int brightnessLevel = -1;  // -1 = leave at 100 %
 };
 
 void printUsage() {
@@ -46,6 +50,7 @@ void printUsage() {
         "  --seconds N       How long to play before stopping (default 2)\n"
         "  --config DIR      Config directory (default ./config)\n"
         "  --screenshot FILE Save the first frame as a BMP (requires --render)\n"
+        "  --brightness N    UI brightness level 0..4 => 100/75/50/25/0 percent\n"
         "  --fast            Do not pace audio to real time\n"
         "  --help            Show this help\n"
         "\n"
@@ -126,6 +131,8 @@ int main(int argc, char** argv) {
     if (const char* dir = valueOf(argc, argv, "--config")) options.configDir = dir;
     if (const char* theme = valueOf(argc, argv, "--theme")) options.theme = theme;
     if (const char* shot = valueOf(argc, argv, "--screenshot")) options.screenshot = shot;
+    if (const char* level = valueOf(argc, argv, "--brightness"))
+        options.brightnessLevel = std::atoi(level);
 
     std::printf("RetroDisc OS %s\n", std::string(retrodisc::version()).c_str());
 
@@ -158,6 +165,13 @@ int main(int argc, char** argv) {
     std::printf("[theme] %s (%s)\n", themes.current().name.c_str(), themes.currentId().c_str());
 
     const retrodisc::KeyMap keys(cfg.keys);
+    retrodisc::SysfsBacklight backlightDevice;
+    retrodisc::BrightnessController brightness(&backlightDevice);
+    retrodisc::DisplayPower displayPower;
+    if (options.brightnessLevel >= 0) brightness.setUiLevel(options.brightnessLevel);
+    std::printf("[backlight] %s\n", brightness.backlightAvailable()
+                                        ? backlightDevice.path().c_str()
+                                        : "unavailable, UI brightness only");
 
     retrodisc::EventBus bus;
     bus.subscribe([](const retrodisc::Event& event) {
@@ -278,6 +292,18 @@ int main(int argc, char** argv) {
             case retrodisc::Action::Eject:
                 core.eject();
                 break;
+            case retrodisc::Action::BrightnessDown:
+                brightness.uiDown();
+                std::printf("[brightness] ui %d%%\n", brightness.uiPercent());
+                break;
+            case retrodisc::Action::BrightnessUp:
+                brightness.uiUp();
+                std::printf("[brightness] ui %d%%\n", brightness.uiPercent());
+                break;
+            case retrodisc::Action::DisplayToggle:
+                displayPower.toggle();
+                std::printf("[display] %s\n", displayPower.on() ? "on" : "off");
+                break;
             case retrodisc::Action::Quit:
                 quit = true;
                 break;
@@ -307,13 +333,22 @@ int main(int argc, char** argv) {
                 if (event.type == SDL_KEYDOWN) {
                     if (event.key.keysym.sym == SDLK_ESCAPE) {
                         quit = true;
+                    } else if (!displayPower.on()) {
+                        displayPower.wake();  // first key only wakes the screen
+                        std::printf("[display] on\n");
                     } else {
                         const char* name = SDL_GetKeyName(event.key.keysym.sym);
                         if (name != nullptr) applyAction(keys.resolve(name));
                     }
                 }
             }
-            retrodisc::renderMainScreen(renderer, makeModel(core, cfg), themes.current());
+            if (displayPower.on()) {
+                retrodisc::renderMainScreen(renderer, makeModel(core, cfg),
+                                            brightness.apply(themes.current()));
+            } else {
+                SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+                SDL_RenderClear(renderer);
+            }
             SDL_RenderPresent(renderer);
             if (!options.screenshot.empty()) {
                 if (saveFrame(renderer, options.screenshot)) {
