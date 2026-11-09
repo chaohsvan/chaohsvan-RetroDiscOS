@@ -1,8 +1,10 @@
 #include <SDL2/SDL.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <string>
 
 #include "audio/mock_audio.h"
@@ -10,7 +12,10 @@
 #include "core/config.h"
 #include "core/event_bus.h"
 #include "core/player_core.h"
+#include "core/state_store.h"
 #include "core/version.h"
+#include "display/theme_manager.h"
+#include "input/key_mapping.h"
 #include "ui/main_screen.h"
 
 namespace {
@@ -22,7 +27,8 @@ struct Options {
     bool fast = false;
     int seconds = 2;
     std::string configDir = "config";
-    std::string screenshot;  // save the first rendered frame here
+    std::string theme;
+    std::string screenshot;
 };
 
 void printUsage() {
@@ -35,11 +41,16 @@ void printUsage() {
         "  --mock            Use mock CD/audio backends (no hardware needed)\n"
         "  --auto-disc       Insert a mock disc at startup\n"
         "  --render          Open the SDL2 player window (works with dummy driver)\n"
+        "  --theme ID        Start with this theme (digital-hifi, classic-vfd, amber,\n"
+        "                    vintage-analog, off)\n"
         "  --seconds N       How long to play before stopping (default 2)\n"
         "  --config DIR      Config directory (default ./config)\n"
         "  --screenshot FILE Save the first frame as a BMP (requires --render)\n"
         "  --fast            Do not pace audio to real time\n"
-        "  --help            Show this help\n",
+        "  --help            Show this help\n"
+        "\n"
+        "Keys (while --render is active): SPACE play/pause, LEFT/RIGHT prev/next,\n"
+        "UP/DOWN volume, F5 theme, E eject, X stop, Q quit.\n",
         std::string(retrodisc::version()).c_str());
 }
 
@@ -57,6 +68,15 @@ const char* valueOf(int argc, char** argv, const char* flag) {
     return nullptr;
 }
 
+// ~/.local/state/retrodisc/state.conf, created on demand.
+std::string defaultStatePath() {
+    const char* home = std::getenv("HOME");
+    const std::string base = std::string(home != nullptr ? home : ".") + "/.local/state/retrodisc";
+    std::error_code ec;
+    std::filesystem::create_directories(base, ec);
+    return base + "/state.conf";
+}
+
 retrodisc::UiModel makeModel(const retrodisc::PlayerCore& core,
                              const retrodisc::PlayerConfig& cfg) {
     retrodisc::UiModel model;
@@ -72,9 +92,6 @@ retrodisc::UiModel makeModel(const retrodisc::PlayerCore& core,
     return model;
 }
 
-}  // namespace
-
-// Reads the back buffer and writes it as a BMP, for headless UI review.
 bool saveFrame(SDL_Renderer* renderer, const std::string& path) {
     int width = 0;
     int height = 0;
@@ -88,6 +105,8 @@ bool saveFrame(SDL_Renderer* renderer, const std::string& path) {
     SDL_FreeSurface(surface);
     return ok;
 }
+
+}  // namespace
 
 int main(int argc, char** argv) {
     if (hasFlag(argc, argv, "--help") || hasFlag(argc, argv, "-h")) {
@@ -105,6 +124,7 @@ int main(int argc, char** argv) {
         if (options.seconds <= 0) options.seconds = 1;
     }
     if (const char* dir = valueOf(argc, argv, "--config")) options.configDir = dir;
+    if (const char* theme = valueOf(argc, argv, "--theme")) options.theme = theme;
     if (const char* shot = valueOf(argc, argv, "--screenshot")) options.screenshot = shot;
 
     std::printf("RetroDisc OS %s\n", std::string(retrodisc::version()).c_str());
@@ -123,6 +143,21 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "[error] invalid configuration\n");
         return 1;
     }
+    retrodisc::PlayerConfig cfg = config.config;
+
+    retrodisc::StateStore state(defaultStatePath());
+    state.load();
+    retrodisc::ThemeManager themes(
+        options.theme.empty() ? retrodisc::ThemeManager::initialIdFromStore(state, cfg.theme)
+                              : options.theme,
+        &state);
+    if (!options.theme.empty() && themes.currentId() != options.theme) {
+        std::printf("[theme] unknown theme '%s', using '%s'\n", options.theme.c_str(),
+                    themes.currentId().c_str());
+    }
+    std::printf("[theme] %s (%s)\n", themes.current().name.c_str(), themes.currentId().c_str());
+
+    const retrodisc::KeyMap keys(cfg.keys);
 
     retrodisc::EventBus bus;
     bus.subscribe([](const retrodisc::Event& event) {
@@ -150,12 +185,11 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "[error] cannot open the CD backend\n");
         return 1;
     }
-    if (!audio.open(config.config.audioDevice)) {
-        std::fprintf(stderr, "[error] cannot open audio device '%s'\n",
-                     config.config.audioDevice.c_str());
+    if (!audio.open(cfg.audioDevice)) {
+        std::fprintf(stderr, "[error] cannot open audio device '%s'\n", cfg.audioDevice.c_str());
         return 1;
     }
-    audio.setVolume(config.config.volume);
+    audio.setVolume(cfg.volume);
 
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
@@ -208,6 +242,50 @@ int main(int argc, char** argv) {
     int lastPrintedSecond = -1;
     bool quit = false;
 
+    auto applyAction = [&](retrodisc::Action action) {
+        switch (action) {
+            case retrodisc::Action::PlayPause:
+                if (core.state() == retrodisc::PlayerState::Playing) {
+                    core.pause();
+                } else {
+                    core.play();
+                }
+                break;
+            case retrodisc::Action::Stop:
+                core.stop();
+                break;
+            case retrodisc::Action::Next:
+                core.next();
+                break;
+            case retrodisc::Action::Prev:
+                core.prev();
+                break;
+            case retrodisc::Action::VolUp:
+                cfg.volume = std::min(1.0f, cfg.volume + 0.05f);
+                audio.setVolume(cfg.volume);
+                std::printf("[vol] %d%%\n", static_cast<int>(cfg.volume * 100.0f + 0.5f));
+                break;
+            case retrodisc::Action::VolDown:
+                cfg.volume = std::max(0.0f, cfg.volume - 0.05f);
+                audio.setVolume(cfg.volume);
+                std::printf("[vol] %d%%\n", static_cast<int>(cfg.volume * 100.0f + 0.5f));
+                break;
+            case retrodisc::Action::Theme: {
+                const retrodisc::Theme& theme = themes.cycle();
+                std::printf("[theme] %s (%s)\n", theme.name.c_str(), themes.currentId().c_str());
+                break;
+            }
+            case retrodisc::Action::Eject:
+                core.eject();
+                break;
+            case retrodisc::Action::Quit:
+                quit = true;
+                break;
+            default:
+                break;
+        }
+    };
+
     while (!quit && core.state() == retrodisc::PlayerState::Playing && playedFrames < limitFrames) {
         const int frames = core.tick();
         if (frames <= 0 && core.state() != retrodisc::PlayerState::Playing) break;
@@ -219,16 +297,23 @@ int main(int argc, char** argv) {
             std::printf("[play] track %02d  %s / %s  vol %d%%\n", core.trackNumber(),
                         retrodisc::formatTime(core.elapsedMs()).c_str(),
                         retrodisc::formatTime(core.trackTotalMs()).c_str(),
-                        static_cast<int>(config.config.volume * 100.0f + 0.5f));
+                        static_cast<int>(cfg.volume * 100.0f + 0.5f));
         }
 
         if (renderer != nullptr) {
             SDL_Event event;
             while (SDL_PollEvent(&event) != 0) {
                 if (event.type == SDL_QUIT) quit = true;
-                if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) quit = true;
+                if (event.type == SDL_KEYDOWN) {
+                    if (event.key.keysym.sym == SDLK_ESCAPE) {
+                        quit = true;
+                    } else {
+                        const char* name = SDL_GetKeyName(event.key.keysym.sym);
+                        if (name != nullptr) applyAction(keys.resolve(name));
+                    }
+                }
             }
-            retrodisc::renderMainScreen(renderer, makeModel(core, config.config));
+            retrodisc::renderMainScreen(renderer, makeModel(core, cfg), themes.current());
             SDL_RenderPresent(renderer);
             if (!options.screenshot.empty()) {
                 if (saveFrame(renderer, options.screenshot)) {

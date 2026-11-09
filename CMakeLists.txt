@@ -53,9 +53,12 @@ add_library(retrodisc_core STATIC
   src/audio/mock_audio.cpp
   src/core/config.cpp
   src/core/player_core.cpp
+  src/core/state_store.cpp
   src/input/key_mapping.cpp
   src/display/font5x7.cpp
   src/display/text_renderer.cpp
+  src/display/theme.cpp
+  src/display/theme_manager.cpp
   src/ui/main_screen.cpp
 )
 target_include_directories(retrodisc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)

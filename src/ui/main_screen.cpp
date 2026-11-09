@@ -13,12 +13,13 @@ namespace retrodisc {
 namespace {
 
 constexpr int kMarginDivisor = 24;
-constexpr SDL_Color kBackground{6, 10, 8, 255};
-constexpr SDL_Color kForeground{90, 255, 150, 255};
-constexpr SDL_Color kDim{30, 110, 60, 255};
 
 int clampInt(int value, int low, int high) {
     return std::max(low, std::min(value, high));
+}
+
+void setColor(SDL_Renderer* renderer, SDL_Color color) {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
 
 }  // namespace
@@ -33,7 +34,7 @@ std::string formatTrackCounter(int trackNumber, int trackCount) {
     return std::string(buffer);
 }
 
-void renderMainScreen(SDL_Renderer* renderer, const UiModel& model) {
+void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme& theme) {
     if (renderer == nullptr) return;
 
     int width = 0;
@@ -41,8 +42,9 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model) {
     if (SDL_GetRendererOutputSize(renderer, &width, &height) != 0) return;
     if (width <= 0 || height <= 0) return;
 
-    SDL_SetRenderDrawColor(renderer, kBackground.r, kBackground.g, kBackground.b, kBackground.a);
+    setColor(renderer, theme.background);
     SDL_RenderClear(renderer);
+    if (theme.displayOff) return;  // T10: blank screen, playback keeps running
 
     const int margin = std::max(8, width / kMarginDivisor);
     const int scaleSmall = clampInt(height / 120, 2, 6);
@@ -52,7 +54,7 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model) {
 
     // --- Row 1: track counter and title -----------------------------------
     const std::string counter = formatTrackCounter(model.trackNumber, model.trackCount);
-    SDL_SetRenderDrawColor(renderer, kForeground.r, kForeground.g, kForeground.b, kForeground.a);
+    setColor(renderer, theme.foreground);
     drawText(renderer, margin, margin, scaleSmall, counter);
 
     const int titleX = margin + (static_cast<int>(counter.size()) + 2) * kGlyphAdvance * scaleSmall;
@@ -69,7 +71,7 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model) {
     const int timeY = margin + textHeight(scaleSmall) + margin / 2;
     drawText(renderer, margin, timeY, scaleBig, elapsed);
 
-    SDL_SetRenderDrawColor(renderer, kDim.r, kDim.g, kDim.b, kDim.a);
+    setColor(renderer, theme.dim);
     const int totalX = margin + textWidth(elapsed, scaleBig) + kGlyphAdvance * scaleBig;
     const int totalChars = 7;  // " /03:45" plus slack
     const int totalRoom = std::max(0, width - margin - totalX);
@@ -81,34 +83,33 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model) {
     // --- Progress bar ------------------------------------------------------
     const int barHeight = std::max(6, height / 60);
     const int barY = height - margin - barHeight;
-    SDL_SetRenderDrawColor(renderer, kDim.r, kDim.g, kDim.b, kDim.a);
+    setColor(renderer, theme.dim);
     const SDL_Rect barBackground{margin, barY, width - 2 * margin, barHeight};
     SDL_RenderFillRect(renderer, &barBackground);
 
     if (model.totalMs > 0) {
         const double ratio =
             std::min(1.0, std::max(0.0, static_cast<double>(model.elapsedMs) / model.totalMs));
-        SDL_SetRenderDrawColor(renderer, kForeground.r, kForeground.g, kForeground.b,
-                               kForeground.a);
+        setColor(renderer, theme.accent);
         const SDL_Rect filled{margin, barY, static_cast<int>((width - 2 * margin) * ratio),
                               barHeight};
         SDL_RenderFillRect(renderer, &filled);
     }
 
-    // --- Row 3: state and volume ------------------------------------------
+    // --- Rows 3/4: state, volume, disc and device --------------------------
     const int statusScale = std::max(2, scaleSmall - 1);
     const int statusY = barY - textHeight(statusScale) - margin / 2;
     std::string status = model.state;
     status += "  VOL ";
     status += std::to_string(clampInt(model.volumePercent, 0, 100));
     status += "%";
-    SDL_SetRenderDrawColor(renderer, kForeground.r, kForeground.g, kForeground.b, kForeground.a);
+    setColor(renderer, theme.foreground);
     drawText(renderer, margin, statusY, statusScale, status);
 
-    const int heightOffset = textHeight(statusScale) + margin / 4;
+    const int deviceY = statusY - textHeight(statusScale) - margin / 4;
     const std::string deviceLine = model.discStatus + "  " + model.audioDevice;
-    SDL_SetRenderDrawColor(renderer, kDim.r, kDim.g, kDim.b, kDim.a);
-    drawText(renderer, margin, statusY - heightOffset, statusScale,
+    setColor(renderer, theme.dim);
+    drawText(renderer, margin, deviceY, statusScale,
              fitText(deviceLine, statusScale, width - 2 * margin));
 }
 

@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "display/theme.h"
+
 struct SDL_Renderer;
 
 namespace retrodisc {
@@ -23,7 +25,8 @@ struct UiModel {
 // "01/12", zero padded like a real CD player.
 std::string formatTrackCounter(int trackNumber, int trackCount);
 
-// Clears the renderer, draws the player screen, and does NOT call SDL_RenderPresent.
-void renderMainScreen(SDL_Renderer* renderer, const UiModel& model);
+// Clears the renderer, draws the player screen with the given theme, and does
+// NOT call SDL_RenderPresent. A displayOff theme renders an empty black screen.
+void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme& theme);
 
 }  // namespace retrodisc
