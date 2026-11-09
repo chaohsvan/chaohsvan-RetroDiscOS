@@ -51,6 +51,7 @@ add_library(retrodisc_core STATIC
   src/cd/mock_cd.cpp
   src/audio/audio_interface.cpp
   src/audio/mock_audio.cpp
+  src/audio/alsa_audio.cpp
   src/core/config.cpp
   src/core/player_core.cpp
   src/core/state_store.cpp
@@ -70,7 +71,7 @@ add_library(retrodisc_core STATIC
   src/system/diagnostics.cpp
 )
 target_include_directories(retrodisc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(retrodisc_core PUBLIC retrodisc_options PkgConfig::SDL2)
+target_link_libraries(retrodisc_core PUBLIC retrodisc_options PkgConfig::SDL2 PkgConfig::ALSA)
 target_compile_definitions(retrodisc_core PUBLIC RETRODISC_VERSION="${PROJECT_VERSION}")
 
 # ---------------------------------------------------------------------------

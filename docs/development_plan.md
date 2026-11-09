@@ -220,7 +220,7 @@ public:
 |---|---|---|
 | T23 | `cdparanoia` 可行性 spike | 一张正版音频 CD |
 | T24 | `RealCDBackend`（libcdio + paranoia） | T23 通过 |
-| T25 | `ALSAAudioBackend` | 有声卡/DAC |
+| T25 | `ALSAAudioBackend` | ✅ 已完成（设备可用时） |
 | T26 | 设备热插拔与断连处理 | 拔 DAC 不崩溃，显示异常状态 |
 | T27 | 精确 seek（F11/F12） | 定位误差 < 1 秒 |
 | T28 | 光盘更换检测 | 换盘后 TOC 更新，续播不误触发 |
@@ -374,3 +374,15 @@ qemu + Debian 13 (trixie) cloud image 实测结果：
 
 过程中发现并修复两个只有真机才暴露的问题（tty DeviceAllow、stdout 块缓冲），
 详见 `docs/vm-test.md`。
+
+### 2026-11-09 · M4 提前完成 T25（ALSA 后端）
+
+M4 的 T23/T24 必须等音频 CD，但 T25 与光驱无关，已提前完成：
+
+- `ALSAAudioBackend` 实现 `IAudioBackend`，直接对接 alsa-lib
+- 44.1 kHz / 16 bit / 立体声；`snd_pcm_set_params` 允许 ALSA 重采样（D2：不追 Bit-Perfect）
+- 欠载 (`-EPIPE`) 自动 prepare 重试；系统挂起 (`-ESTRPIPE`) 先 resume 再降级 prepare
+- 音量是软件增益，与 Mock 语义一致
+- 验证：`ctest` 22/22；ALSA `null` 插件跑全部用例；台式机 `default` 设备实测写入 4410 帧成功
+
+RealCDBackend（T24）仍然**卡在 T23 之前不动**——这是计划里写死的闸门。
