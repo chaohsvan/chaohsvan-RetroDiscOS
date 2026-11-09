@@ -11,15 +11,18 @@ namespace retrodisc {
 
 enum class EventType {
     StateChanged,
+    TrackChanged,
     Error,
 };
 
 struct Event {
     EventType type = EventType::StateChanged;
     PlayerState state = PlayerState::NoDisc;
+    int track = 0;
     std::string message;
 
     static Event stateChanged(PlayerState state);
+    static Event trackChanged(int track);
     static Event error(std::string message);
 };
 

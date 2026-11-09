@@ -40,3 +40,8 @@ add_executable(retrodisc_test_render test_render.cpp)
 target_link_libraries(retrodisc_test_render PRIVATE retrodisc_core)
 target_include_directories(retrodisc_test_render PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME render COMMAND retrodisc_test_render)
+
+add_executable(retrodisc_test_integration test_integration.cpp)
+target_link_libraries(retrodisc_test_integration PRIVATE retrodisc_core)
+target_include_directories(retrodisc_test_integration PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME integration COMMAND retrodisc_test_integration)

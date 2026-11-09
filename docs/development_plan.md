@@ -11,8 +11,8 @@
 | 里程碑 | 内容 | 依赖 | 状态 |
 |---|---|---|---|
 | M0 | 需求确认、架构设计、工程规则 | — | ✅ |
-| M1 | 播放器核心 + Mock 后端（可跑通全流程） | M0 | ⬜ |
-| M2 | 显示界面与交互（主题、亮度、HELP、SERVICE） | M1 | ⬜ |
+| M1 | 播放器核心 + Mock 后端（可跑通全流程） | M0 | ✅ |
+| M2 | 显示界面与交互（主题、亮度、HELP、SERVICE） | M1 | 🔄 下一步 |
 | M3 | Debian 系统集成（systemd、自启动、权限） | M1 | ⬜ |
 | M4 | 真机光驱与 DAC 适配 | M1、真机 | ⬜ |
 | M5 | 电源、背光、功耗优化 | M3、M4 | ⬜ |
@@ -282,3 +282,41 @@ public:
 3. `clang-format` 已跑过
 4. 提交信息含「验证」与「未解决」两行
 5. 没有跨模块越界修改（见 `AGENTS.md` 第 4 节）
+
+---
+
+## 10. 进度记录
+
+### 2026-11-09 · M1 完成
+
+| 卡 | 结果 |
+|---|---|
+| T1 构建骨架 | ✅ 三目标 + ASan/UBSan + `-Werror` + scripts |
+| T2 状态机与事件总线 | ✅ 七态、21 条合法迁移、派发期增删安全 |
+| T3 Mock CD | ✅ 12 轨假 TOC、1kHz PCM、故障注入 |
+| T4 Mock 音频 | ✅ null/WAV 两种 sink、实时节流、软件音量 |
+| T5 配置 | ✅ player.conf / keys.conf，坏输入只告警 |
+| T6 界面与按键 | ✅ 自绘 5x7 字体、无头渲染、22 个键位动作 |
+| T7 集成 | ✅ `--mock --auto-disc` 全流程 |
+
+验证命令与结果：
+
+```bash
+$ ./scripts/test.sh
+100% tests passed, 0 tests failed out of 9
+
+$ SDL_VIDEODRIVER=dummy ./build/retrodisc --mock --auto-disc
+[toc] 12 tracks, 46:25 total, disc MOCK-DISC-0001
+[state] PLAYING
+[play] track 01  00:02 / 03:45  vol 80%
+[state] STOPPED / EJECTING / NO_DISC
+[done] played 2.5 s of audio, final state NO_DISC
+```
+
+界面截图：`docs/images/m1-ui.png`（800x480，dummy 视频驱动下抓帧）。
+
+已知遗留（不阻塞 M1）：
+
+1. `--seconds N` 会因为按 0.5 s 分块而最多多播 0.5 s；
+2. 主界面中段留白较多，等 M2 主题系统再排版；
+3. 进度条背景色偏亮，M2 调整配色。

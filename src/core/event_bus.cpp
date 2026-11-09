@@ -11,6 +11,13 @@ Event Event::stateChanged(PlayerState state) {
     return event;
 }
 
+Event Event::trackChanged(int track) {
+    Event event;
+    event.type = EventType::TrackChanged;
+    event.track = track;
+    return event;
+}
+
 Event Event::error(std::string message) {
     Event event;
     event.type = EventType::Error;

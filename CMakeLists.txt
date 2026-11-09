@@ -52,6 +52,7 @@ add_library(retrodisc_core STATIC
   src/audio/audio_interface.cpp
   src/audio/mock_audio.cpp
   src/core/config.cpp
+  src/core/player_core.cpp
   src/input/key_mapping.cpp
   src/display/font5x7.cpp
   src/display/text_renderer.cpp

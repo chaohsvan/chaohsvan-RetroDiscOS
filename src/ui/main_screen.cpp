@@ -46,7 +46,9 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model) {
 
     const int margin = std::max(8, width / kMarginDivisor);
     const int scaleSmall = clampInt(height / 120, 2, 6);
-    const int scaleBig = clampInt(height / 22, 4, 28);
+    // Reserve the right third for the total time so the big clock never runs off screen.
+    const int bigBudget = (width * 62) / 100 - margin;
+    const int scaleBig = clampInt(std::min(height / 16, bigBudget / (5 * kGlyphAdvance)), 4, 28);
 
     // --- Row 1: track counter and title -----------------------------------
     const std::string counter = formatTrackCounter(model.trackNumber, model.trackCount);
@@ -69,7 +71,12 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model) {
 
     SDL_SetRenderDrawColor(renderer, kDim.r, kDim.g, kDim.b, kDim.a);
     const int totalX = margin + textWidth(elapsed, scaleBig) + kGlyphAdvance * scaleBig;
-    drawText(renderer, totalX, timeY, scaleBig, "/" + total);
+    const int totalChars = 7;  // " /03:45" plus slack
+    const int totalRoom = std::max(0, width - margin - totalX);
+    const int totalScale =
+        std::max(2, std::min(scaleBig / 2, totalRoom / (totalChars * kGlyphAdvance)));
+    const int totalY = timeY + textHeight(scaleBig) - textHeight(totalScale);
+    drawText(renderer, totalX, totalY, totalScale, "/" + total);
 
     // --- Progress bar ------------------------------------------------------
     const int barHeight = std::max(6, height / 60);
