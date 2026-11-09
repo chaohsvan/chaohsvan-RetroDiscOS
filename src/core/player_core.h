@@ -10,6 +10,7 @@
 #include "core/event_bus.h"
 #include "core/play_mode.h"
 #include "core/player_state.h"
+#include "core/resume.h"
 
 namespace retrodisc {
 
@@ -63,6 +64,11 @@ class PlayerCore {
     void seedRandom(unsigned int seed) {
         rng_.seed(seed);
     }
+
+    ResumePoint resumePoint() const;
+    // Restores track and position for the same disc; false when the saved point
+    // belongs to another disc or the player is not in a restorable state.
+    bool applyResume(const ResumePoint& point);
 
     int elapsedMs() const;
     int trackTotalMs() const;

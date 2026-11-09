@@ -67,8 +67,8 @@ bool PlayerCore::play() {
         now != PlayerState::Paused) {
         return false;
     }
-    if (now != PlayerState::Paused) elapsedFrames_ = 0;
-
+    // Do not reset elapsedFrames_ here: a restored resume point must survive
+    // play(). stop() and finishDisc() are the only places that zero it.
     if (!audio_.start()) {
         publishError("audio backend failed to start");
         return false;
@@ -220,6 +220,41 @@ int PlayerCore::tick() {
 std::string PlayerCore::currentTitle() const {
     const TrackInfo* track = disc_.track(track_);
     return track != nullptr ? formatTrackTitle(*track) : std::string();
+}
+
+ResumePoint PlayerCore::resumePoint() const {
+    ResumePoint point;
+    if (!disc_.valid) return point;
+    point.discId = disc_.discId;
+    point.track = track_;
+    point.positionMs = elapsedMs();
+    return point;
+}
+
+bool PlayerCore::applyResume(const ResumePoint& point) {
+    if (!disc_.valid || !point.valid()) return false;
+    if (point.discId != disc_.discId) return false;  // different album: ignore
+
+    const PlayerState now = state_.state();
+    if (now != PlayerState::DiscReady && now != PlayerState::Stopped &&
+        now != PlayerState::Paused) {
+        return false;
+    }
+
+    const int wanted = std::clamp(point.track, 1, disc_.trackCount);
+    const TrackInfo* track = disc_.track(wanted);
+    if (track == nullptr) return false;
+
+    long long frames = static_cast<long long>(point.positionMs) * kSampleRate / 1000;
+    const long long trackFrames = static_cast<long long>(track->lengthSectors) * kFramesPerSector;
+    if (frames >= trackFrames) frames = 0;                    // past the end: start the track over
+    frames = (frames / kFramesPerSector) * kFramesPerSector;  // sector aligned
+
+    track_ = wanted;
+    elapsedFrames_ = frames;
+    buffer_.clear();
+    bus_.publish(Event::trackChanged(track_));
+    return true;
 }
 
 int PlayerCore::elapsedMs() const {

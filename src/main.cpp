@@ -12,6 +12,7 @@
 #include "core/config.h"
 #include "core/event_bus.h"
 #include "core/player_core.h"
+#include "core/resume.h"
 #include "core/state_store.h"
 #include "core/version.h"
 #include "display/backlight.h"
@@ -259,6 +260,12 @@ int main(int argc, char** argv) {
                 .c_str());
     }
 
+    const retrodisc::ResumePoint resume = retrodisc::loadResume(state);
+    if (core.applyResume(resume)) {
+        std::printf("[resume] restored track %02d at %s\n", core.trackNumber(),
+                    retrodisc::formatTime(core.elapsedMs()).c_str());
+    }
+
     if (!core.play()) {
         std::fprintf(stderr, "[error] %s\n", core.lastError().c_str());
         return 1;
@@ -437,6 +444,12 @@ int main(int argc, char** argv) {
         }
     }
 
+    if (core.state() == retrodisc::PlayerState::Playing ||
+        core.state() == retrodisc::PlayerState::Paused) {
+        retrodisc::saveResume(state, core.resumePoint());
+        std::printf("[resume] saved track %02d at %s\n", core.trackNumber(),
+                    retrodisc::formatTime(core.elapsedMs()).c_str());
+    }
     if (core.state() == retrodisc::PlayerState::Playing) core.stop();
     const double playedSeconds =
         static_cast<double>(playedFrames) / static_cast<double>(retrodisc::kSampleRate);
