@@ -6,6 +6,7 @@ set -euo pipefail
 PREFIX="${RETRODISC_PREFIX:-/opt/retrodisc}"
 BUILD_DIR="build"
 UNIT_DIR=""
+TMPFILES_DIR=""
 INSTALL_CONFIG=1
 
 usage() {
@@ -15,6 +16,7 @@ Usage: scripts/deploy.sh [options]
   --prefix DIR      install prefix (default /opt/retrodisc)
   --build DIR       build directory (default build)
   --unit-dir DIR    also copy retrodisc.service here (e.g. /etc/systemd/system)
+  --tmpfiles-dir DIR  also copy the tty tmpfiles rule here (e.g. /etc/tmpfiles.d)
   --skip-config     do not install config files
   -h, --help        show this help
 
@@ -27,6 +29,7 @@ while [ $# -gt 0 ]; do
         --prefix) PREFIX="$2"; shift 2 ;;
         --build) BUILD_DIR="$2"; shift 2 ;;
         --unit-dir) UNIT_DIR="$2"; shift 2 ;;
+        --tmpfiles-dir) TMPFILES_DIR="$2"; shift 2 ;;
         --skip-config) INSTALL_CONFIG=0; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "deploy: unknown option: $1" >&2; exit 2 ;;
@@ -65,10 +68,17 @@ if [ "$INSTALL_CONFIG" -eq 1 ]; then
 fi
 
 install -m 0644 "$ROOT/system/retrodisc.service" "$PREFIX/lib/systemd/system/retrodisc.service"
+mkdir -p "$PREFIX/lib/tmpfiles.d"
+install -m 0644 "$ROOT/system/retrodisc-tmpfiles.conf" "$PREFIX/lib/tmpfiles.d/retrodisc.conf"
 if [ -n "$UNIT_DIR" ]; then
     mkdir -p "$UNIT_DIR"
     install -m 0644 "$ROOT/system/retrodisc.service" "$UNIT_DIR/retrodisc.service"
     echo "deploy: unit copied to $UNIT_DIR"
+fi
+if [ -n "$TMPFILES_DIR" ]; then
+    mkdir -p "$TMPFILES_DIR"
+    install -m 0644 "$ROOT/system/retrodisc-tmpfiles.conf" "$TMPFILES_DIR/retrodisc.conf"
+    echo "deploy: tmpfiles rule copied to $TMPFILES_DIR"
 fi
 
 {
@@ -80,5 +90,6 @@ echo "deploy: installed into $PREFIX"
 if [ -z "$UNIT_DIR" ]; then
     echo "deploy: next steps (as root):"
     echo "  install -m 0644 $PREFIX/lib/systemd/system/retrodisc.service /etc/systemd/system/"
+    echo "  systemd-tmpfiles --create retrodisc.conf"
     echo "  systemctl daemon-reload && systemctl enable --now retrodisc"
 fi

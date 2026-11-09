@@ -13,8 +13,8 @@
 | M0 | 需求确认、架构设计、工程规则 | — | ✅ |
 | M1 | 播放器核心 + Mock 后端（可跑通全流程） | M0 | ✅ |
 | M2 | 显示界面与交互（主题、亮度、HELP、SERVICE） | M1 | ✅ |
-| M3 | Debian 系统集成（systemd、自启动、权限） | M1 | 🔄 T17 待验证 |
-| M4 | 真机光驱与 DAC 适配 | M1、真机 | ⬜ |
+| M3 | Debian 系统集成（systemd、自启动、权限） | M1 | ✅ |
+| M4 | 真机光驱与 DAC 适配 | M1、真机 | 🔄 待音频 CD |
 | M5 | 电源、背光、功耗优化 | M3、M4 | ⬜ |
 | M6 | 稳定性与验收 | M2–M5 | ⬜ |
 
@@ -352,7 +352,7 @@ $ SDL_VIDEODRIVER=dummy ./build/retrodisc --mock --auto-disc
 | T20 权限 | ✅ check_permissions.sh 检查 /dev/sr0 与 /dev/snd，给出修复命令 |
 | T21 部署 | ✅ deploy.sh 装二进制/配置/单元，配置不覆盖，保留 previous |
 | T22 回滚 | ✅ rollback.sh 交换 current/previous，无备份时明确失败 |
-| T17 Debian VM | ⬜ 需要 qemu（未安装）+ 约 350 MB 镜像 + 在 VM 内重新编译 |
+| T17 Debian VM | ✅ 已用 qemu + Debian 13 cloud image 验证，见 docs/vm-test.md |
 
 验证方式说明：T18–T22 全部通过**不依赖虚拟机**的测试（`ctest` 19/19），
 包括 `systemd-analyze verify`、脚本退出码、参数透传、临时前缀下的真实部署与回滚。
@@ -360,3 +360,17 @@ $ SDL_VIDEODRIVER=dummy ./build/retrodisc --mock --auto-disc
 T17 未完成的原因：本机没有 qemu/virt-install/VirtualBox。可行方案是
 qemu + Debian cloud image + cloud-init（`/dev/kvm` 可用），但需要在 VM 内
 重新编译（Ubuntu 26.04 的 glibc 比 Debian 13 新，二进制不可直接复用）。
+
+### 2026-11-09 · M3 完成（T17 已验证）
+
+qemu + Debian 13 (trixie) cloud image 实测结果：
+
+| 验证项 | 结果 |
+|---|---|
+| VM 内 ctest | 19/19（源码在 Debian 上重新编译） |
+| 开机自启 | 重启后 `enabled` + `active`，无需人工干预 |
+| 崩溃自愈 | `kill -9` 后 6 秒内换 PID 重新播放 |
+| 日志 | `[toc]`/`[state]`/`[play]` 全部进 journal |
+
+过程中发现并修复两个只有真机才暴露的问题（tty DeviceAllow、stdout 块缓冲），
+详见 `docs/vm-test.md`。

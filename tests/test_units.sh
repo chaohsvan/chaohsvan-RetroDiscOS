@@ -27,6 +27,7 @@ require_key "WantedBy=multi-user.target"
 require_key "NoNewPrivileges=yes"
 require_key "ProtectSystem=strict"
 require_key "ReadWritePaths=/home/retrodisc/.local/state"
+require_key "DeviceAllow=/dev/tty1 rw"   # StandardInput=tty needs this under DevicePolicy=auto
 grep -qE "^SupplementaryGroups=.*audio" "$UNIT" || fail "service user needs the audio group"
 grep -qE "^SupplementaryGroups=.*cdrom" "$UNIT" || fail "service user needs the cdrom group"
 
@@ -85,5 +86,10 @@ if command -v systemd-analyze >/dev/null 2>&1; then
         fail "systemd-analyze reported a problem"
     fi
 fi
+
+# tmpfiles rule must grant the tty to the service user.
+TMPFILES="$ROOT/system/retrodisc-tmpfiles.conf"
+[ -f "$TMPFILES" ] || fail "missing $TMPFILES"
+grep -qE "^z /dev/tty1 0620 root tty" "$TMPFILES" || fail "tmpfiles rule must chmod /dev/tty1 0620"
 
 echo "system units: OK"

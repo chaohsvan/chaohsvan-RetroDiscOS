@@ -126,6 +126,10 @@ bool saveFrame(SDL_Renderer* renderer, const std::string& path) {
 }  // namespace
 
 int main(int argc, char** argv) {
+    // Line-buffer stdout so logs reach the journal immediately when running
+    // under systemd (stdout is a pipe there, which would otherwise buffer).
+    std::setvbuf(stdout, nullptr, _IOLBF, 0);
+
     if (hasFlag(argc, argv, "--help") || hasFlag(argc, argv, "-h")) {
         printUsage();
         return 0;

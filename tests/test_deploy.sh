@@ -28,6 +28,7 @@ make_binary v1
 [ -f "$PREFIX/lib/systemd/system/retrodisc.service" ] || fail "unit not installed"
 [ -f "$PREFIX/etc/player.conf" ] || fail "player.conf not installed"
 [ -f "$PREFIX/version" ] || fail "version stamp missing"
+[ -f "$PREFIX/lib/tmpfiles.d/retrodisc.conf" ] || fail "tmpfiles rule not installed"
 [ "$("$PREFIX/bin/retrodisc")" = "v1" ] || fail "installed binary is not v1"
 
 # Config is user data: redeploying must not clobber edits.

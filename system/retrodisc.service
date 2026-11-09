@@ -11,7 +11,7 @@ After=getty@tty1.service
 Type=simple
 User=retrodisc
 Group=retrodisc
-SupplementaryGroups=audio video cdrom input
+SupplementaryGroups=audio video cdrom input tty
 Environment=HOME=/home/retrodisc
 Environment=XDG_RUNTIME_DIR=/run/user/%U
 Environment=RETRODISC_BIN=/opt/retrodisc/bin/retrodisc
@@ -21,6 +21,9 @@ ExecStart=/opt/retrodisc/bin/retrodisc-session
 Restart=on-failure
 RestartSec=3
 StandardInput=tty
+# Keep diagnostics in the journal even though stdin is the VT.
+StandardOutput=journal
+StandardError=journal
 TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
@@ -36,6 +39,7 @@ ProtectKernelModules=yes
 ProtectKernelTunables=yes
 RestrictAddressFamilies=AF_UNIX
 DevicePolicy=auto
+DeviceAllow=/dev/tty1 rw
 DeviceAllow=/dev/sr0 rw
 DeviceAllow=/dev/snd/ rw
 DeviceAllow=/dev/dri/ rw
