@@ -4,12 +4,12 @@
 #include <string>
 #include <vector>
 
+#include "core/audio_format.h"
+
 namespace retrodisc {
 
-// CD-DA framing constants (Red Book).
-inline constexpr int kSampleRate = 44100;
-inline constexpr int kChannels = 2;
-inline constexpr int kBitsPerSample = 16;
+// CD-DA framing constants (Red Book). The PCM format itself lives in
+// core/audio_format.h so the audio layer does not depend on the CD layer.
 inline constexpr int kFramesPerSector = 588;  // 2352 bytes / (2 ch * 2 bytes)
 inline constexpr int kSectorsPerSecond = 75;
 
