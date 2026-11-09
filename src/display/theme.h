@@ -8,6 +8,11 @@
 
 namespace retrodisc {
 
+enum class ClockStyle {
+    Bitmap,        // 5x7 dot matrix
+    SevenSegment,  // segmented VFD digits
+};
+
 // A display theme is pure data: colours plus a flag for the "display off" mode.
 // Layout lives in the UI layer; themes must not contain drawing code.
 struct Theme {
@@ -18,6 +23,8 @@ struct Theme {
     SDL_Color dim;
     SDL_Color accent;
     bool displayOff = false;
+    ClockStyle clockStyle = ClockStyle::Bitmap;
+    bool vuMeter = false;
 };
 
 const std::vector<Theme>& allThemes();

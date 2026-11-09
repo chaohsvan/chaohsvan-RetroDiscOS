@@ -7,7 +7,9 @@
 #include <string>
 
 #include "cd/cd_interface.h"
+#include "display/seven_segment.h"
 #include "display/text_renderer.h"
+#include "display/vu_meter.h"
 
 namespace retrodisc {
 namespace {
@@ -78,10 +80,28 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme&
     // --- Row 2: elapsed / total -------------------------------------------
     const std::string elapsed = formatTime(model.elapsedMs);
     const std::string total = formatTime(model.totalMs);
-    drawText(renderer, margin, timeY, scaleBig, elapsed);
+
+    int clockWidth = textWidth(elapsed, scaleBig);
+    if (theme.clockStyle == ClockStyle::SevenSegment) {
+        // Segmented VFD clock: height driven by the width budget, not the font.
+        int digitHeight = std::min(height / 5, (bigBudget * 10) / 32);
+        if (digitHeight < 12) digitHeight = 12;
+        int thickness = std::max(3, digitHeight / 9);
+        int digitWidth = (digitHeight * 11) / 20;
+        while (digitWidth > 1 &&
+               sevenSegmentTextWidth(digitWidth, thickness, elapsed) > bigBudget) {
+            --digitWidth;
+            if (digitWidth < 4) break;
+        }
+        setColor(renderer, theme.foreground);
+        clockWidth = drawSevenSegmentText(renderer, margin, timeY, digitWidth, digitHeight,
+                                          thickness, elapsed);
+    } else {
+        drawText(renderer, margin, timeY, scaleBig, elapsed);
+    }
 
     setColor(renderer, theme.dim);
-    const int totalX = margin + textWidth(elapsed, scaleBig) + kGlyphAdvance * scaleBig;
+    const int totalX = margin + clockWidth + kGlyphAdvance * scaleBig;
     const int totalChars = 7;  // " /03:45" plus slack
     const int totalRoom = std::max(0, width - margin - totalX);
     const int totalScale =
@@ -89,8 +109,26 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme&
     const int totalY = timeY + textHeight(scaleBig) - textHeight(totalScale);
     drawText(renderer, totalX, totalY, totalScale, "/" + total);
 
-    // --- Spectrum (F9): fills the gap between the clock and the status rows -
-    if (model.showSpectrum) {
+    // --- Analog VU meter (vintage theme) -----------------------------------
+    if (theme.vuMeter) {
+        const int top = timeBottom + margin / 2;
+        const int bottom = deviceY - margin / 2;
+        const int meterHeight = bottom - top;
+        if (meterHeight > textHeight(statusScale) * 2) {
+            float leftLevel = 0.0f;
+            float rightLevel = 0.0f;
+            const int half = SpectrumAnalyzer::kBands / 2;
+            for (int band = 0; band < half; ++band) {
+                leftLevel += model.spectrum[static_cast<std::size_t>(band)];
+                rightLevel +=
+                    model.spectrum[static_cast<std::size_t>(band + half)];
+            }
+            leftLevel /= static_cast<float>(half);
+            rightLevel /= static_cast<float>(half);
+            drawVuMeter(renderer, margin, top, width - 2 * margin, meterHeight, leftLevel,
+                        rightLevel, theme);
+        }
+    } else if (model.showSpectrum) {
         const int top = timeBottom + margin / 2;
         const int bottom = deviceY - margin / 2;
         const int available = bottom - top;

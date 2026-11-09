@@ -6,6 +6,7 @@
 
 #include "display/font5x7.h"
 #include "display/text_renderer.h"
+#include "display/seven_segment.h"
 #include "display/theme.h"
 #include "test_util.h"
 #include "ui/main_screen.h"
@@ -56,6 +57,15 @@ int countLitPixels(SDL_Renderer* renderer, int width, int height) {
     return lit;
 }
 
+int countDifferentPixels(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b) {
+    if (a.size() != b.size()) return -1;
+    int differing = 0;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (a[i] != b[i]) ++differing;
+    }
+    return differing;
+}
+
 void clearToBlack(SDL_Renderer* renderer) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
@@ -84,9 +94,17 @@ RD_TEST(main_screen_draws_something) {
     model.discStatus = "DISC READY";
     model.audioDevice = "null";
 
+    std::vector<uint32_t> blank(800u * 480u);
+    retrodisc::renderMainScreen(fixture.renderer, UiModel{}, retrodisc::defaultTheme());
+    SDL_RenderReadPixels(fixture.renderer, nullptr, SDL_PIXELFORMAT_ARGB8888, blank.data(),
+                         800 * 4);
+
+    std::vector<uint32_t> drawn(800u * 480u);
     retrodisc::renderMainScreen(fixture.renderer, model, retrodisc::defaultTheme());
-    const int lit = countLitPixels(fixture.renderer, 800, 480);
-    RD_CHECK(lit > 2000);
+    SDL_RenderReadPixels(fixture.renderer, nullptr, SDL_PIXELFORMAT_ARGB8888, drawn.data(),
+                         800 * 4);
+
+    RD_CHECK(countDifferentPixels(blank, drawn) > 2000);
 }
 
 RD_TEST(main_screen_handles_empty_model) {
@@ -201,6 +219,96 @@ RD_TEST(off_theme_renders_a_blank_screen) {
     model.state = "PLAYING";
     retrodisc::renderMainScreen(fixture.renderer, model, *retrodisc::themeById("off"));
     RD_CHECK_EQ(countLitPixels(fixture.renderer, 200, 120), 0);
+}
+
+RD_TEST(seven_segment_digits_have_different_density) {
+    SdlFixture fixture(120, 80);
+    RD_CHECK(fixture.ok());
+    if (!fixture.ok()) return;
+
+    clearToBlack(fixture.renderer);
+    SDL_SetRenderDrawColor(fixture.renderer, 255, 255, 255, 255);
+    retrodisc::drawSevenSegmentText(fixture.renderer, 10, 10, 30, 54, 6, "1");
+    const int one = countLitPixels(fixture.renderer, 120, 80);
+
+    clearToBlack(fixture.renderer);
+    SDL_SetRenderDrawColor(fixture.renderer, 255, 255, 255, 255);
+    retrodisc::drawSevenSegmentText(fixture.renderer, 10, 10, 30, 54, 6, "8");
+    const int eight = countLitPixels(fixture.renderer, 120, 80);
+
+    RD_CHECK(one > 0);
+    RD_CHECK(eight > one * 2);
+}
+
+RD_TEST(seven_segment_text_width_is_predictable) {
+    RD_CHECK_EQ(retrodisc::sevenSegmentTextWidth(30, 6, ""), 0);
+    RD_CHECK_EQ(retrodisc::sevenSegmentTextWidth(30, 6, "8"), 30);
+    // advance = width + thickness
+    RD_CHECK_EQ(retrodisc::sevenSegmentTextWidth(30, 6, "88"), 66);
+}
+
+RD_TEST(vfd_theme_actually_uses_segmented_digits) {
+    SdlFixture fixture(400, 240);
+    RD_CHECK(fixture.ok());
+    if (!fixture.ok()) return;
+
+    UiModel model;
+    model.trackNumber = 2;
+    model.trackCount = 12;
+    model.trackTitle = "MODE CHECK";
+    model.elapsedMs = 65000;
+    model.totalMs = 225000;
+    model.state = "PLAYING";
+
+    // Same colours on both runs, only the clock style differs: this isolates the
+    // layout change from the palette change.
+    retrodisc::Theme vfd = *retrodisc::themeById("classic-vfd");
+    RD_CHECK(vfd.clockStyle == retrodisc::ClockStyle::SevenSegment);
+
+    retrodisc::Theme bitmap = vfd;
+    bitmap.clockStyle = retrodisc::ClockStyle::Bitmap;
+
+    std::vector<uint32_t> first(400u * 240u);
+    retrodisc::renderMainScreen(fixture.renderer, model, bitmap);
+    SDL_RenderReadPixels(fixture.renderer, nullptr, SDL_PIXELFORMAT_ARGB8888, first.data(), 400 * 4);
+
+    std::vector<uint32_t> second(400u * 240u);
+    retrodisc::renderMainScreen(fixture.renderer, model, vfd);
+    SDL_RenderReadPixels(fixture.renderer, nullptr, SDL_PIXELFORMAT_ARGB8888, second.data(),
+                         400 * 4);
+
+    RD_CHECK(first != second);
+}
+
+RD_TEST(vintage_theme_actually_draws_a_meter) {
+    SdlFixture fixture(400, 240);
+    RD_CHECK(fixture.ok());
+    if (!fixture.ok()) return;
+
+    UiModel model;
+    model.state = "PLAYING";
+    model.totalMs = 1000;
+    model.spectrum[2] = 0.8f;
+    model.spectrum[12] = 0.4f;
+
+    retrodisc::Theme vintage = *retrodisc::themeById("vintage-analog");
+    RD_CHECK(vintage.vuMeter);
+
+    retrodisc::Theme plain = vintage;
+    plain.vuMeter = false;
+
+    std::vector<uint32_t> withoutMeter(400u * 240u);
+    retrodisc::renderMainScreen(fixture.renderer, model, plain);
+    SDL_RenderReadPixels(fixture.renderer, nullptr, SDL_PIXELFORMAT_ARGB8888,
+                         withoutMeter.data(), 400 * 4);
+
+    std::vector<uint32_t> withMeter(400u * 240u);
+    retrodisc::renderMainScreen(fixture.renderer, model, vintage);
+    SDL_RenderReadPixels(fixture.renderer, nullptr, SDL_PIXELFORMAT_ARGB8888, withMeter.data(),
+                         400 * 4);
+
+    const int differing = countDifferentPixels(withoutMeter, withMeter);
+    RD_CHECK(differing > 500);  // face plate, ticks and needles
 }
 
 RD_TEST_MAIN()
