@@ -83,3 +83,8 @@ add_test(NAME spectrum COMMAND retrodisc_test_spectrum)
 
 add_test(NAME system_units
          COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_units.sh ${CMAKE_SOURCE_DIR})
+
+add_test(NAME deploy
+         COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_deploy.sh ${CMAKE_SOURCE_DIR})
+add_test(NAME permissions
+         COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_permissions.sh ${CMAKE_SOURCE_DIR})
