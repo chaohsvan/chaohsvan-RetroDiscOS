@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 RULES="$ROOT/system/90-retrodisc-usb.rules"
+BACKLIGHT_RULES="$ROOT/system/85-retrodisc-backlight.rules"
 JOURNAL="$ROOT/system/retrodisc-journald.conf"
 CHECK="$ROOT/scripts/check_power.sh"
 
@@ -26,7 +27,16 @@ grep -q "08\*" "$RULES" || fail "rules must cover USB mass storage (class 08)"
 grep -q "01\*" "$RULES" || fail "rules must cover USB audio (class 01)"
 grep -q "power/control}=\"on\"" "$RULES" || fail "rules must force power/control=on"
 
+[ -f "$BACKLIGHT_RULES" ] || fail "missing $BACKLIGHT_RULES"
+grep -q "video" "$BACKLIGHT_RULES" || fail "backlight rule must target the video group"
+grep -q "chmod g+w" "$BACKLIGHT_RULES" || fail "backlight rule must make the file group-writable"
+
 if command -v udevadm > /dev/null 2>&1; then
+    if ! udevadm verify "$BACKLIGHT_RULES" > /tmp/udev-verify-bl.log 2>&1; then
+        cat /tmp/udev-verify-bl.log >&2
+        fail "udevadm verify rejected the backlight rules"
+    fi
+    rm -f /tmp/udev-verify-bl.log
     if ! udevadm verify "$RULES" > /tmp/udev-verify.log 2>&1; then
         cat /tmp/udev-verify.log >&2
         fail "udevadm verify rejected the rules"

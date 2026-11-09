@@ -1,0 +1,8 @@
+# Installed as /etc/udev/rules.d/85-retrodisc-backlight.rules
+#
+# /sys/class/backlight/*/brightness is root-only by default, so the player
+# (running as an unprivileged user in the video group) cannot dim the screen.
+# Grant group write instead of running the player as root.
+ACTION=="add", SUBSYSTEM=="backlight", KERNEL=="*", \
+  RUN+="/usr/bin/chgrp video /sys/class/backlight/%k/brightness", \
+  RUN+="/usr/bin/chmod g+w /sys/class/backlight/%k/brightness"

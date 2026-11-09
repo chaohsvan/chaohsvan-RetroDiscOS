@@ -86,6 +86,8 @@ if [ -n "$ETC_DIR" ]; then
         "$ETC_DIR/systemd/journald.conf.d/retrodisc.conf"
     install -m 0644 "$ROOT/system/90-retrodisc-usb.rules" \
         "$ETC_DIR/udev/rules.d/90-retrodisc-usb.rules"
+    install -m 0644 "$ROOT/system/85-retrodisc-backlight.rules" \
+        "$ETC_DIR/udev/rules.d/85-retrodisc-backlight.rules"
     echo "deploy: journald and udev rules copied under $ETC_DIR"
 fi
 if [ -n "$TMPFILES_DIR" ]; then

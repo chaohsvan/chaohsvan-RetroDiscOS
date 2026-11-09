@@ -39,6 +39,7 @@ struct Options {
     bool showHelp = false;
     bool showService = false;
     bool spectrum = false;
+    bool backlightTest = false;
 };
 
 void printUsage() {
@@ -60,6 +61,7 @@ void printUsage() {
         "  --show-help       Open the help screen at startup (needs --render)\n"
         "  --show-service    Open SERVICE MODE at startup (needs --render)\n"
         "  --spectrum        Enable the F9 spectrum display at startup\n"
+        "  --backlight-test  Cycle the hardware backlight and restore it (no SDL)\n"
         "  --fast            Do not pace audio to real time\n"
         "  --help            Show this help\n"
         "\n"
@@ -150,6 +152,7 @@ int main(int argc, char** argv) {
     options.showHelp = hasFlag(argc, argv, "--show-help");
     options.showService = hasFlag(argc, argv, "--show-service");
     options.spectrum = hasFlag(argc, argv, "--spectrum");
+    options.backlightTest = hasFlag(argc, argv, "--backlight-test");
     if (const char* level = valueOf(argc, argv, "--brightness"))
         options.brightnessLevel = std::atoi(level);
 
@@ -191,7 +194,10 @@ int main(int argc, char** argv) {
     if (options.showHelp) help.show();
     retrodisc::ServiceScreen service;
     if (options.showService) service.show();
-    if (options.brightnessLevel >= 0) brightness.setUiLevel(options.brightnessLevel);
+    if (options.brightnessLevel >= 0) {
+        brightness.setUiLevel(options.brightnessLevel);
+        brightness.setBacklightLevel(options.brightnessLevel);
+    }
     std::printf("[backlight] %s\n", brightness.backlightAvailable()
                                         ? backlightDevice.path().c_str()
                                         : "unavailable, UI brightness only");
@@ -227,6 +233,33 @@ int main(int argc, char** argv) {
         return 1;
     }
     audio.setVolume(cfg.volume);
+
+    if (options.backlightTest) {
+        if (!brightness.backlightAvailable()) {
+            std::printf("[backlight] no backlight device, nothing to test\n");
+            return 3;
+        }
+        const int originalPercent = brightness.backlightPercent();
+        const int originalRaw = backlightDevice.raw();
+        std::printf("[backlight] device %s, original %d%% (raw %d)\n",
+                    backlightDevice.path().c_str(), originalPercent, originalRaw);
+        bool ok = true;
+        for (int level = 0; level < 5; ++level) {
+            brightness.setBacklightLevel(level);
+            const int read_back = brightness.backlightPercent();
+            const int expected = retrodisc::BrightnessController::kLevels[static_cast<std::size_t>(level)];
+            const bool match = read_back == expected;
+            ok = ok && match;
+            std::printf("[backlight] set %3d%% -> sysfs %3d%% %s\n", expected, read_back,
+                        match ? "ok" : "MISMATCH");
+            SDL_Delay(400);
+        }
+        // Put the panel back exactly the way we found it, not to a level step.
+        const bool restored = backlightDevice.setRaw(originalRaw);
+        std::printf("[backlight] restore raw %d -> %d (%s)\n", originalRaw,
+                    backlightDevice.raw(), restored ? "ok" : "FAILED");
+        return ok ? 0 : 1;
+    }
 
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
@@ -323,11 +356,15 @@ int main(int argc, char** argv) {
                 break;
             case retrodisc::Action::BrightnessDown:
                 brightness.uiDown();
-                std::printf("[brightness] ui %d%%\n", brightness.uiPercent());
+                brightness.setBacklightLevel(brightness.uiLevelIndex());
+                std::printf("[brightness] ui %d%%  backlight %d%%\n", brightness.uiPercent(),
+                            brightness.backlightPercent());
                 break;
             case retrodisc::Action::BrightnessUp:
                 brightness.uiUp();
-                std::printf("[brightness] ui %d%%\n", brightness.uiPercent());
+                brightness.setBacklightLevel(brightness.uiLevelIndex());
+                std::printf("[brightness] ui %d%%  backlight %d%%\n", brightness.uiPercent(),
+                            brightness.backlightPercent());
                 break;
             case retrodisc::Action::DisplayToggle:
                 displayPower.toggle();
@@ -427,6 +464,8 @@ int main(int argc, char** argv) {
                     } else if (!displayPower.on()) {
                         displayPower.wake();  // first key only wakes the screen
                         std::printf("[display] on\n");
+                    } else if (brightness.wakeFromBlank()) {
+                        std::printf("[brightness] woken at %d%%\n", brightness.uiPercent());
                     } else {
                         applyAction(action);
                     }

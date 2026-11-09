@@ -56,8 +56,27 @@ bool SysfsBacklight::setPercent(int percent) {
     return writeInt(dir_ + "/brightness", clampPercent(percent) * maxRaw_ / 100);
 }
 
+int SysfsBacklight::raw() const {
+    if (!available_) return 0;
+    int value = 0;
+    return readInt(dir_ + "/brightness", value) ? value : 0;
+}
+
+bool SysfsBacklight::setRaw(int value) {
+    if (!available_ || maxRaw_ <= 0) return false;
+    if (value < 0) value = 0;
+    if (value > maxRaw_) value = maxRaw_;
+    return writeInt(dir_ + "/brightness", value);
+}
+
 int MockBacklight::percent() const {
     return maxRaw_ > 0 ? raw_ * 100 / maxRaw_ : 0;
+}
+
+bool MockBacklight::setRaw(int value) {
+    if (!available_) return false;
+    raw_ = std::max(0, std::min(maxRaw_, value));
+    return true;
 }
 
 bool MockBacklight::setPercent(int percent) {

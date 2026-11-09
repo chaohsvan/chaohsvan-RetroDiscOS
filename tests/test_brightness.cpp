@@ -126,4 +126,51 @@ RD_TEST(display_power_toggles) {
     RD_CHECK(!power.on());
 }
 
+RD_TEST(raw_values_round_trip_for_exact_restore) {
+    MockBacklight device(120000);
+    RD_CHECK(device.setRaw(37499));
+    RD_CHECK_EQ(device.raw(), 37499);
+    RD_CHECK_EQ(device.percent(), 31);  // 37499 / 120000
+
+    RD_CHECK(device.setRaw(-10));
+    RD_CHECK_EQ(device.raw(), 0);
+    RD_CHECK(device.setRaw(999999));
+    RD_CHECK_EQ(device.raw(), 120000);
+}
+
+RD_TEST(null_backlight_has_no_raw_control) {
+    NullBacklight none;
+    RD_CHECK_EQ(none.raw(), 0);
+    RD_CHECK(!none.setRaw(100));
+}
+
+RD_TEST(controller_backlight_index_is_reported) {
+    MockBacklight device(100);
+    BrightnessController brightness(&device);
+    RD_CHECK_EQ(brightness.uiLevelIndex(), 0);
+    brightness.uiDown();
+    brightness.uiDown();
+    RD_CHECK_EQ(brightness.uiLevelIndex(), 2);
+    brightness.setBacklightLevel(2);
+    RD_CHECK_EQ(brightness.backlightLevelIndex(), 2);
+    RD_CHECK_EQ(device.percent(), 50);
+}
+
+RD_TEST(zero_brightness_wakes_on_any_key) {
+    MockBacklight device(100);
+    BrightnessController brightness(&device);
+    RD_CHECK(!brightness.wakeFromBlank());  // already visible
+
+    brightness.setUiLevel(4);  // 0 %
+    brightness.setBacklightLevel(4);
+    RD_CHECK_EQ(brightness.uiPercent(), 0);
+
+    RD_CHECK(brightness.wakeFromBlank());
+    RD_CHECK_EQ(brightness.uiPercent(), 25);
+    RD_CHECK_EQ(device.percent(), 25);
+
+    // A second key is a normal key again.
+    RD_CHECK(!brightness.wakeFromBlank());
+}
+
 RD_TEST_MAIN()

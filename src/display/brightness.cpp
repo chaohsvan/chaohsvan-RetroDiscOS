@@ -49,6 +49,13 @@ void BrightnessController::uiDown() {
     if (uiIndex_ + 1 < kLevels.size()) ++uiIndex_;
 }
 
+bool BrightnessController::wakeFromBlank() {
+    if (uiPercent() > 0) return false;
+    uiIndex_ = 3;  // 25 %: visible, but not a flash in the dark
+    setBacklightLevel(static_cast<int>(uiIndex_));
+    return true;
+}
+
 Theme BrightnessController::apply(const Theme& theme) const {
     if (theme.displayOff) return theme;
 
