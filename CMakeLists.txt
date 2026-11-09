@@ -51,6 +51,7 @@ add_library(retrodisc_core STATIC
   src/cd/mock_cd.cpp
   src/audio/audio_interface.cpp
   src/audio/mock_audio.cpp
+  src/core/config.cpp
 )
 target_include_directories(retrodisc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(retrodisc_core PUBLIC retrodisc_options)

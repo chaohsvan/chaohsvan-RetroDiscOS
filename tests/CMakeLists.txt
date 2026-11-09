@@ -23,3 +23,10 @@ add_executable(retrodisc_test_mock_audio test_mock_audio.cpp)
 target_link_libraries(retrodisc_test_mock_audio PRIVATE retrodisc_core)
 target_include_directories(retrodisc_test_mock_audio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME mock_audio COMMAND retrodisc_test_mock_audio)
+
+add_executable(retrodisc_test_config test_config.cpp)
+target_link_libraries(retrodisc_test_config PRIVATE retrodisc_core)
+target_include_directories(retrodisc_test_config PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_definitions(retrodisc_test_config PRIVATE
+  RETRODISC_CONFIG_DIR="${CMAKE_SOURCE_DIR}/config")
+add_test(NAME config COMMAND retrodisc_test_config)
