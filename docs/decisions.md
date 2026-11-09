@@ -48,17 +48,38 @@
 
 ## D4 · 当前硬件
 
-**状态：有 USB 光驱，无 DAC，暂时无音频 CD 在手**（2026-11-09 确认）
+**状态：有 USB 光驱，无 DAC，无音频 CD 在手**（2026-11-09 确认）
 
 已探测到的设备：
 
 | 项 | 实测值 |
 |---|---|
-| 光驱 | `HL-DT-ST DVDRAM GP78N`，挂在 `/dev/sr0` |
+| 光驱 | `HL-DT-ST DVDRAM GP78N`，固件 `1.01`，挂在 `/dev/sr0`，USB 外置 |
 | 介质 | 空（`blockdev` 报 "找不到介质"） |
-| 音频设备 | 本机无 `/dev/snd`（SSH/容器环境），真机播放待定 |
+| 音频设备 | 本机 shell 无 `/dev/snd`，真机播放待定 |
 
-**影响**：
-- M1/M2 用 Mock 后端，不受影响。
-- Step 4 的真机 spike 需要：一张正版音频 CD + 安装 `cdparanoia` CLI。
-- 没有 DAC 时，先用板载声卡代替，`IAudioBackend` 的设备名走配置，不写死。
+**光驱能力**（`cd-drive` 实测）：
+
+| 能力 | 结果 | 意义 |
+|---|---|---|
+| C2 Error pointers | ✅ 支持 | 抓轨能拿到差错位置，可实现校验重读，对 D1 有利 |
+| CD-Text | ✅ 支持 | CD-003（CD-Text 曲目名）有硬件基础 |
+| 加载方式 | Tray（托盘） | 非吸入式 |
+| 托盘收回 | ❌ 固件不支持 | 见下 |
+
+**托盘约束（重要，属于产品行为而非 bug）**：
+
+- 软件可以**弹出**托盘（`eject` / `CDROMEJECT` 可用）。
+- 软件**无法收回**托盘：`CDROMCLOSETRAY` 返回成功但驱动器无动作，SCSI
+  `START STOP UNIT`（LoEj=1, Start=1）返回 `ILLEGAL REQUEST / INVALID FIELD IN CDB (0x24)`。
+- **产品决策：接受这个限制。** 弹出后由用户手动推回托盘，这是真实 CD 机的使用方式。
+
+**对代码的约束**：
+- `ICDBackend::eject()` 只负责弹出，不负责收回；接口里不提供 `load()`。
+- UI 弹出后**不得轮询等待自动关仓**，应进入「等待用户放入光盘」状态，
+  检测到介质后自动继续（对应 CD-001 / CD-005）。
+- CD-007「弹出前停止播放并释放设备」照常实现，但释放动作止于弹出。
+- 没有 DAC 时先用板载声卡代替，`IAudioBackend` 的设备名走配置，不写死。
+
+**Step 4 待办**：需要一张正版音频 CD，然后跑 `cdparanoia -vsQ` 与
+`cdparanoia -B -d /dev/sr0 1`，把结果记入 `docs/hardware_test.md`。
