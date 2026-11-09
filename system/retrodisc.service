@@ -1,0 +1,45 @@
+[Unit]
+Description=RetroDisc CD Player
+Documentation=file:/opt/retrodisc/docs/README.md
+After=systemd-user-sessions.service sound.target
+Wants=sound.target
+# A dedicated VT: the player owns the screen, no desktop session runs here.
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+Type=simple
+User=retrodisc
+Group=retrodisc
+SupplementaryGroups=audio video cdrom input
+Environment=HOME=/home/retrodisc
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+Environment=RETRODISC_BIN=/opt/retrodisc/bin/retrodisc
+Environment=RETRODISC_CONFIG=/opt/retrodisc/etc
+ExecStart=/opt/retrodisc/bin/retrodisc-session
+# Crash recovery: the player is the only thing on screen, so it must come back.
+Restart=on-failure
+RestartSec=3
+StandardInput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+# Hardening. The player never needs root and never writes outside its state dir.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/retrodisc/.local/state
+PrivateTmp=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictAddressFamilies=AF_UNIX
+DevicePolicy=auto
+DeviceAllow=/dev/sr0 rw
+DeviceAllow=/dev/snd/ rw
+DeviceAllow=/dev/dri/ rw
+DeviceAllow=/dev/input/ r
+
+[Install]
+WantedBy=multi-user.target
