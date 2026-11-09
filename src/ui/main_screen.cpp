@@ -9,6 +9,7 @@
 #include "cd/cd_interface.h"
 #include "display/seven_segment.h"
 #include "display/text_renderer.h"
+#include "display/icons.h"
 #include "display/vu_meter.h"
 
 namespace retrodisc {
@@ -78,8 +79,10 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme&
     }
 
     // --- Row 2: elapsed / total -------------------------------------------
-    const std::string elapsed = formatTime(model.elapsedMs);
+    std::string elapsed = formatTime(model.elapsedMs);
     const std::string total = formatTime(model.totalMs);
+    // The colon blinks once per second, like a real player counting time.
+    if ((model.animationMs / 500) % 2 != 0 && elapsed.size() > 2) elapsed[2] = ' ';
 
     int clockWidth = textWidth(elapsed, scaleBig);
     if (theme.clockStyle == ClockStyle::SevenSegment) {
@@ -108,6 +111,19 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme&
         std::max(2, std::min(scaleBig / 2, totalRoom / (totalChars * kGlyphAdvance)));
     const int totalY = timeY + textHeight(scaleBig) - textHeight(totalScale);
     drawText(renderer, totalX, totalY, totalScale, "/" + total);
+
+    // --- Spinning disc, drawn where the spectrum/VU meter is not -----------
+    if (!theme.vuMeter && !model.showSpectrum) {
+        const int top = timeBottom + margin / 2;
+        const int bottom = deviceY - margin / 2;
+        const int band = bottom - top;
+        const int radius = std::min(band / 2 - 4, width / 10);
+        if (radius > 8) {
+            const int cx = width - margin - radius;
+            const int cy = top + band / 2;
+            drawDisc(renderer, cx, cy, radius, model.discAngleDeg, theme.dim, theme.accent);
+        }
+    }
 
     // --- Analog VU meter (vintage theme) -----------------------------------
     if (theme.vuMeter) {
@@ -170,7 +186,18 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme&
     status += std::to_string(clampInt(model.volumePercent, 0, 100));
     status += "%";
     setColor(renderer, theme.foreground);
-    drawText(renderer, margin, statusY, statusScale, status);
+    int statusX = margin;
+    if (model.state == "PLAYING") {
+        drawPlayIcon(renderer, margin, statusY, textHeight(statusScale), theme.foreground);
+        statusX = margin + textHeight(statusScale) + margin / 2;
+    } else if (model.state == "PAUSED") {
+        drawPauseIcon(renderer, margin, statusY, textHeight(statusScale), theme.foreground);
+        statusX = margin + textHeight(statusScale) + margin / 2;
+    } else if (model.state == "STOPPED") {
+        drawStopIcon(renderer, margin, statusY, textHeight(statusScale) / 2, theme.foreground);
+        statusX = margin + textHeight(statusScale) / 2 + margin / 2;
+    }
+    drawText(renderer, statusX, statusY, statusScale, status);
 
     const std::string deviceLine = model.discStatus + "  " + model.audioDevice;
     setColor(renderer, theme.dim);

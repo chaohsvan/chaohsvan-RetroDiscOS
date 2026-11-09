@@ -24,6 +24,8 @@ struct UiModel {
     std::string audioDevice = "null";
     std::string playMode = "NORMAL";
     bool showSpectrum = false;
+    int animationMs = 0;        // monotonic clock, drives the blinking colon
+    double discAngleDeg = 0.0;  // frozen while paused
     std::array<float, SpectrumAnalyzer::kBands> spectrum{};
 };
 

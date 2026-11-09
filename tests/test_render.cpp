@@ -6,6 +6,7 @@
 
 #include "display/font5x7.h"
 #include "display/text_renderer.h"
+#include "display/icons.h"
 #include "display/seven_segment.h"
 #include "display/theme.h"
 #include "test_util.h"
@@ -309,6 +310,71 @@ RD_TEST(vintage_theme_actually_draws_a_meter) {
 
     const int differing = countDifferentPixels(withoutMeter, withMeter);
     RD_CHECK(differing > 500);  // face plate, ticks and needles
+}
+
+RD_TEST(transport_icons_have_different_shapes) {
+    SdlFixture fixture(120, 60);
+    RD_CHECK(fixture.ok());
+    if (!fixture.ok()) return;
+
+    const SDL_Color white{255, 255, 255, 255};
+    const auto drawAndCount = [&](void (*icon)(SDL_Renderer*, int, int, int, SDL_Color)) {
+        clearToBlack(fixture.renderer);
+        icon(fixture.renderer, 10, 10, 32, white);
+        return countLitPixels(fixture.renderer, 120, 60);
+    };
+
+    const int play = drawAndCount(retrodisc::drawPlayIcon);
+    const int pause = drawAndCount(retrodisc::drawPauseIcon);
+    const int stop = drawAndCount(retrodisc::drawStopIcon);
+
+    RD_CHECK(play > 0);
+    RD_CHECK(pause > 0);
+    RD_CHECK(stop > 0);
+    RD_CHECK(play != pause);
+    RD_CHECK(pause != stop);
+}
+
+RD_TEST(disc_rotation_changes_the_frame) {
+    SdlFixture fixture(120, 120);
+    RD_CHECK(fixture.ok());
+    if (!fixture.ok()) return;
+
+    const SDL_Color rim{80, 80, 80, 255};
+    const SDL_Color marker{255, 255, 255, 255};
+
+    clearToBlack(fixture.renderer);
+    retrodisc::drawDisc(fixture.renderer, 60, 60, 45, 0.0, rim, marker);
+    const int still = countLitPixels(fixture.renderer, 120, 120);
+
+    clearToBlack(fixture.renderer);
+    retrodisc::drawDisc(fixture.renderer, 60, 60, 45, 90.0, rim, marker);
+    const int turned = countLitPixels(fixture.renderer, 120, 120);
+
+    RD_CHECK(still > 0);
+    RD_CHECK(turned == still);  // same shape, moved: same amount of ink
+}
+
+RD_TEST(colon_blinks_on_half_seconds) {
+    SdlFixture fixture(400, 240);
+    RD_CHECK(fixture.ok());
+    if (!fixture.ok()) return;
+
+    UiModel model;
+    model.state = "PLAYING";
+    model.elapsedMs = 65000;
+    model.totalMs = 225000;
+
+    const auto renderAt = [&](int ms) {
+        model.animationMs = ms;
+        retrodisc::renderMainScreen(fixture.renderer, model, retrodisc::defaultTheme());
+        std::vector<uint32_t> buffer(400u * 240u);
+        SDL_RenderReadPixels(fixture.renderer, nullptr, SDL_PIXELFORMAT_ARGB8888, buffer.data(),
+                             400 * 4);
+        return buffer;
+    };
+
+    RD_CHECK(renderAt(0) != renderAt(700));  // colon on vs off
 }
 
 RD_TEST_MAIN()

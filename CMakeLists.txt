@@ -68,6 +68,7 @@ add_library(retrodisc_core STATIC
   src/display/theme.cpp
   src/display/theme_manager.cpp
   src/display/seven_segment.cpp
+  src/display/icons.cpp
   src/display/vu_meter.cpp
   src/display/brightness.cpp
   src/display/backlight.cpp

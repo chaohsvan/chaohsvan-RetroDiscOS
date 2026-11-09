@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -96,8 +97,14 @@ std::string defaultStatePath() {
     return base + "/state.conf";
 }
 
+int nowMs() {
+    using namespace std::chrono;
+    return static_cast<int>(
+        duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count() % 3600000);
+}
+
 retrodisc::UiModel makeModel(const retrodisc::PlayerCore& core, const retrodisc::PlayerConfig& cfg,
-                             bool spectrumEnabled) {
+                             bool spectrumEnabled, int animationMs, double discAngleDeg) {
     retrodisc::UiModel model;
     model.trackNumber = core.trackNumber();
     model.trackCount = core.trackCount();
@@ -111,6 +118,8 @@ retrodisc::UiModel makeModel(const retrodisc::PlayerCore& core, const retrodisc:
     model.playMode = std::string(retrodisc::toString(core.playMode()));
     model.showSpectrum = spectrumEnabled;
     model.spectrum = core.spectrum().levels();
+    model.animationMs = animationMs;
+    model.discAngleDeg = discAngleDeg;
     return model;
 }
 
@@ -243,7 +252,8 @@ int main(int argc, char** argv) {
     audio.setRealtime(!options.fast);
 
     retrodisc::PlayerCore core(cd, audio, bus);
-    core.setChunkFrames(retrodisc::kFramesPerSector * retrodisc::kSectorsPerSecond / 2);
+    // ~53 ms per chunk: fine enough for the disc animation to look alive.
+    core.setChunkFrames(retrodisc::kFramesPerSector * 4);
 
     if (!cd.open()) {
         std::fprintf(stderr, "[error] cannot open the CD backend\n");
@@ -338,6 +348,8 @@ int main(int argc, char** argv) {
     long long playedFrames = 0;
     int lastPrintedSecond = -1;
     bool quit = false;
+    double discAngle = 0.0;
+    int lastAnimationMs = nowMs();
 
     // Blanking the display must also kill the backlight, otherwise the panel is
     // still lit behind a black image. Remember the raw value to restore on wake.
@@ -460,6 +472,14 @@ int main(int argc, char** argv) {
     };
 
     while (!quit && core.state() == retrodisc::PlayerState::Playing && playedFrames < limitFrames) {
+        const int frameMs = nowMs();
+        const int frameDelta = frameMs >= lastAnimationMs ? frameMs - lastAnimationMs : 0;
+        lastAnimationMs = frameMs;
+        if (core.state() == retrodisc::PlayerState::Playing) {
+            discAngle += static_cast<double>(frameDelta) * 0.36;  // ~1 rev / second
+            if (discAngle >= 360.0) discAngle -= 360.0;
+        }
+
         const retrodisc::PowerKeyResult powerEvent = powerKey.poll(0);
         if (powerEvent == retrodisc::PowerKeyResult::ShortPress) {
             setDisplayOn(!displayPower.on());
@@ -529,8 +549,9 @@ int main(int argc, char** argv) {
                 } else if (help.visible()) {
                     retrodisc::renderHelpScreen(renderer, help, active);
                 } else {
-                    retrodisc::renderMainScreen(renderer, makeModel(core, cfg, options.spectrum),
-                                                active);
+                    retrodisc::renderMainScreen(
+                        renderer,
+                        makeModel(core, cfg, options.spectrum, frameMs, discAngle), active);
                 }
             } else {
                 SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
