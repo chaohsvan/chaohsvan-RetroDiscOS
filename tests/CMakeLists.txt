@@ -55,3 +55,8 @@ add_executable(retrodisc_test_brightness test_brightness.cpp)
 target_link_libraries(retrodisc_test_brightness PRIVATE retrodisc_core)
 target_include_directories(retrodisc_test_brightness PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME brightness COMMAND retrodisc_test_brightness)
+
+add_executable(retrodisc_test_help test_help.cpp)
+target_link_libraries(retrodisc_test_help PRIVATE retrodisc_core)
+target_include_directories(retrodisc_test_help PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME help COMMAND retrodisc_test_help)

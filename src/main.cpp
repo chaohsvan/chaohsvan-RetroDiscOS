@@ -19,6 +19,7 @@
 #include "display/display_power.h"
 #include "display/theme_manager.h"
 #include "input/key_mapping.h"
+#include "ui/help_screen.h"
 #include "ui/main_screen.h"
 
 namespace {
@@ -33,6 +34,7 @@ struct Options {
     std::string theme;
     std::string screenshot;
     int brightnessLevel = -1;  // -1 = leave at 100 %
+    bool showHelp = false;
 };
 
 void printUsage() {
@@ -51,6 +53,7 @@ void printUsage() {
         "  --config DIR      Config directory (default ./config)\n"
         "  --screenshot FILE Save the first frame as a BMP (requires --render)\n"
         "  --brightness N    UI brightness level 0..4 => 100/75/50/25/0 percent\n"
+        "  --show-help       Open the help screen at startup (needs --render)\n"
         "  --fast            Do not pace audio to real time\n"
         "  --help            Show this help\n"
         "\n"
@@ -131,6 +134,7 @@ int main(int argc, char** argv) {
     if (const char* dir = valueOf(argc, argv, "--config")) options.configDir = dir;
     if (const char* theme = valueOf(argc, argv, "--theme")) options.theme = theme;
     if (const char* shot = valueOf(argc, argv, "--screenshot")) options.screenshot = shot;
+    options.showHelp = hasFlag(argc, argv, "--show-help");
     if (const char* level = valueOf(argc, argv, "--brightness"))
         options.brightnessLevel = std::atoi(level);
 
@@ -168,6 +172,8 @@ int main(int argc, char** argv) {
     retrodisc::SysfsBacklight backlightDevice;
     retrodisc::BrightnessController brightness(&backlightDevice);
     retrodisc::DisplayPower displayPower;
+    retrodisc::HelpScreen help;
+    if (options.showHelp) help.show();
     if (options.brightnessLevel >= 0) brightness.setUiLevel(options.brightnessLevel);
     std::printf("[backlight] %s\n", brightness.backlightAvailable()
                                         ? backlightDevice.path().c_str()
@@ -304,6 +310,9 @@ int main(int argc, char** argv) {
                 displayPower.toggle();
                 std::printf("[display] %s\n", displayPower.on() ? "on" : "off");
                 break;
+            case retrodisc::Action::Help:
+                help.toggle();
+                break;
             case retrodisc::Action::Quit:
                 quit = true;
                 break;
@@ -331,20 +340,37 @@ int main(int argc, char** argv) {
             while (SDL_PollEvent(&event) != 0) {
                 if (event.type == SDL_QUIT) quit = true;
                 if (event.type == SDL_KEYDOWN) {
-                    if (event.key.keysym.sym == SDLK_ESCAPE) {
+                    const bool escape = event.key.keysym.sym == SDLK_ESCAPE;
+                    const char* name = SDL_GetKeyName(event.key.keysym.sym);
+                    const retrodisc::Action action =
+                        name != nullptr ? keys.resolve(name) : retrodisc::Action::None;
+
+                    if (help.visible()) {
+                        // In help: UP/DOWN scroll, H or ESC closes. Nothing else leaks through.
+                        if (escape || action == retrodisc::Action::Help) {
+                            help.hide();
+                        } else if (action == retrodisc::Action::VolUp) {
+                            help.scrollBy(-1);
+                        } else if (action == retrodisc::Action::VolDown) {
+                            help.scrollBy(1);
+                        }
+                    } else if (escape) {
                         quit = true;
                     } else if (!displayPower.on()) {
                         displayPower.wake();  // first key only wakes the screen
                         std::printf("[display] on\n");
                     } else {
-                        const char* name = SDL_GetKeyName(event.key.keysym.sym);
-                        if (name != nullptr) applyAction(keys.resolve(name));
+                        applyAction(action);
                     }
                 }
             }
             if (displayPower.on()) {
-                retrodisc::renderMainScreen(renderer, makeModel(core, cfg),
-                                            brightness.apply(themes.current()));
+                const retrodisc::Theme& active = brightness.apply(themes.current());
+                if (help.visible()) {
+                    retrodisc::renderHelpScreen(renderer, help, active);
+                } else {
+                    retrodisc::renderMainScreen(renderer, makeModel(core, cfg), active);
+                }
             } else {
                 SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
                 SDL_RenderClear(renderer);
