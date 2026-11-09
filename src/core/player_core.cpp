@@ -111,14 +111,52 @@ bool PlayerCore::selectTrack(int number, bool keepPlaying) {
 
 bool PlayerCore::next() {
     if (!disc_.valid) return false;
-    if (track_ >= disc_.trackCount) return false;
+    if (mode_ == PlayMode::Random) return selectTrack(randomTrackNumber(), true);
+    if (track_ >= disc_.trackCount) {
+        if (mode_ == PlayMode::RepeatAll) return selectTrack(1, true);
+        return false;
+    }
     return selectTrack(track_ + 1, true);
 }
 
 bool PlayerCore::prev() {
     if (!disc_.valid) return false;
+    if (mode_ == PlayMode::Random) return selectTrack(randomTrackNumber(), true);
+    if (track_ > 1) return selectTrack(track_ - 1, true);
+    if (mode_ == PlayMode::RepeatAll && disc_.trackCount > 1) {
+        return selectTrack(disc_.trackCount, true);
+    }
     // At the first track, "previous" restarts it, like a real CD player.
-    return selectTrack(track_ > 1 ? track_ - 1 : 1, true);
+    return selectTrack(1, true);
+}
+
+int PlayerCore::randomTrackNumber() {
+    if (disc_.trackCount <= 1) return 1;
+    std::uniform_int_distribution<int> dist(1, disc_.trackCount);
+    int candidate = dist(rng_);
+    if (candidate == track_) candidate = (candidate % disc_.trackCount) + 1;
+    return candidate;
+}
+
+void PlayerCore::handleTrackEnd() {
+    switch (mode_) {
+        case PlayMode::RepeatOne:
+            selectTrack(track_, true);
+            return;
+        case PlayMode::RepeatAll:
+            selectTrack(track_ < disc_.trackCount ? track_ + 1 : 1, true);
+            return;
+        case PlayMode::Random:
+            selectTrack(randomTrackNumber(), true);
+            return;
+        case PlayMode::Normal:
+            if (track_ < disc_.trackCount) {
+                selectTrack(track_ + 1, true);
+            } else {
+                finishDisc();
+            }
+            return;
+    }
 }
 
 bool PlayerCore::eject() {
@@ -175,13 +213,7 @@ int PlayerCore::tick() {
 
     elapsedFrames_ += written;
     const long long trackFrames = static_cast<long long>(track->lengthSectors) * kFramesPerSector;
-    if (elapsedFrames_ >= trackFrames) {
-        if (track_ < disc_.trackCount) {
-            selectTrack(track_ + 1, true);
-        } else {
-            finishDisc();
-        }
-    }
+    if (elapsedFrames_ >= trackFrames) handleTrackEnd();
     return written;
 }
 

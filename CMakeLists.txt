@@ -54,6 +54,7 @@ add_library(retrodisc_core STATIC
   src/core/config.cpp
   src/core/player_core.cpp
   src/core/state_store.cpp
+  src/core/play_mode.cpp
   src/input/key_mapping.cpp
   src/display/font5x7.cpp
   src/display/text_renderer.cpp

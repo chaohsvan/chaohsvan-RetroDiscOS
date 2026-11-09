@@ -100,6 +100,10 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme&
     const int statusScale = std::max(2, scaleSmall - 1);
     const int statusY = barY - textHeight(statusScale) - margin / 2;
     std::string status = model.state;
+    if (!model.playMode.empty()) {
+        status += "  ";
+        status += model.playMode;
+    }
     status += "  VOL ";
     status += std::to_string(clampInt(model.volumePercent, 0, 100));
     status += "%";

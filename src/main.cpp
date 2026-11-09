@@ -100,6 +100,7 @@ retrodisc::UiModel makeModel(const retrodisc::PlayerCore& core,
     model.volumePercent = static_cast<int>(cfg.volume * 100.0f + 0.5f);
     model.discStatus = core.hasDisc() ? "DISC READY" : "NO DISC";
     model.audioDevice = cfg.audioDevice;
+    model.playMode = std::string(retrodisc::toString(core.playMode()));
     return model;
 }
 
@@ -316,6 +317,26 @@ int main(int argc, char** argv) {
                 displayPower.toggle();
                 std::printf("[display] %s\n", displayPower.on() ? "on" : "off");
                 break;
+            case retrodisc::Action::Mode: {
+                const retrodisc::PlayMode next = retrodisc::nextPlayMode(core.playMode());
+                core.setPlayMode(next);
+                std::printf("[mode] %s\n", std::string(retrodisc::toString(next)).c_str());
+                break;
+            }
+            case retrodisc::Action::Random:
+                core.setPlayMode(retrodisc::PlayMode::Random);
+                std::printf("[mode] RANDOM\n");
+                break;
+            case retrodisc::Action::Repeat: {
+                const retrodisc::PlayMode current = core.playMode();
+                const retrodisc::PlayMode next =
+                    current == retrodisc::PlayMode::RepeatAll   ? retrodisc::PlayMode::RepeatOne
+                    : current == retrodisc::PlayMode::RepeatOne ? retrodisc::PlayMode::Normal
+                                                                : retrodisc::PlayMode::RepeatAll;
+                core.setPlayMode(next);
+                std::printf("[mode] %s\n", std::string(retrodisc::toString(next)).c_str());
+                break;
+            }
             case retrodisc::Action::Help:
                 if (help.visible()) {
                     help.hide();

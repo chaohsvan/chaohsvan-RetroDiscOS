@@ -20,6 +20,7 @@ struct UiModel {
     int volumePercent = 80;
     std::string discStatus = "NO DISC";
     std::string audioDevice = "null";
+    std::string playMode = "NORMAL";
 };
 
 // "01/12", zero padded like a real CD player.
