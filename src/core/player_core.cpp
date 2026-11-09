@@ -204,6 +204,7 @@ int PlayerCore::tick() {
         return 0;
     }
 
+    spectrum_.push(buffer_.data(), got);
     const int written = audio_.write(buffer_.data(), got);
     if (written <= 0) {
         publishError("failed to write audio to the output device");

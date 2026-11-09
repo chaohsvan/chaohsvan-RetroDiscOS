@@ -56,6 +56,7 @@ add_library(retrodisc_core STATIC
   src/core/state_store.cpp
   src/core/play_mode.cpp
   src/core/resume.cpp
+  src/core/spectrum.cpp
   src/input/key_mapping.cpp
   src/display/font5x7.cpp
   src/display/text_renderer.cpp

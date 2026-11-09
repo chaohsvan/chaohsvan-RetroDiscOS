@@ -38,6 +38,7 @@ struct Options {
     int brightnessLevel = -1;  // -1 = leave at 100 %
     bool showHelp = false;
     bool showService = false;
+    bool spectrum = false;
 };
 
 void printUsage() {
@@ -58,6 +59,7 @@ void printUsage() {
         "  --brightness N    UI brightness level 0..4 => 100/75/50/25/0 percent\n"
         "  --show-help       Open the help screen at startup (needs --render)\n"
         "  --show-service    Open SERVICE MODE at startup (needs --render)\n"
+        "  --spectrum        Enable the F9 spectrum display at startup\n"
         "  --fast            Do not pace audio to real time\n"
         "  --help            Show this help\n"
         "\n"
@@ -89,8 +91,8 @@ std::string defaultStatePath() {
     return base + "/state.conf";
 }
 
-retrodisc::UiModel makeModel(const retrodisc::PlayerCore& core,
-                             const retrodisc::PlayerConfig& cfg) {
+retrodisc::UiModel makeModel(const retrodisc::PlayerCore& core, const retrodisc::PlayerConfig& cfg,
+                             bool spectrumEnabled) {
     retrodisc::UiModel model;
     model.trackNumber = core.trackNumber();
     model.trackCount = core.trackCount();
@@ -102,6 +104,8 @@ retrodisc::UiModel makeModel(const retrodisc::PlayerCore& core,
     model.discStatus = core.hasDisc() ? "DISC READY" : "NO DISC";
     model.audioDevice = cfg.audioDevice;
     model.playMode = std::string(retrodisc::toString(core.playMode()));
+    model.showSpectrum = spectrumEnabled;
+    model.spectrum = core.spectrum().levels();
     return model;
 }
 
@@ -141,6 +145,7 @@ int main(int argc, char** argv) {
     if (const char* shot = valueOf(argc, argv, "--screenshot")) options.screenshot = shot;
     options.showHelp = hasFlag(argc, argv, "--show-help");
     options.showService = hasFlag(argc, argv, "--show-service");
+    options.spectrum = hasFlag(argc, argv, "--spectrum");
     if (const char* level = valueOf(argc, argv, "--brightness"))
         options.brightnessLevel = std::atoi(level);
 
@@ -324,6 +329,10 @@ int main(int argc, char** argv) {
                 displayPower.toggle();
                 std::printf("[display] %s\n", displayPower.on() ? "on" : "off");
                 break;
+            case retrodisc::Action::Spectrum:
+                options.spectrum = !options.spectrum;
+                std::printf("[spectrum] %s\n", options.spectrum ? "on" : "off");
+                break;
             case retrodisc::Action::Mode: {
                 const retrodisc::PlayMode next = retrodisc::nextPlayMode(core.playMode());
                 core.setPlayMode(next);
@@ -426,7 +435,8 @@ int main(int argc, char** argv) {
                 } else if (help.visible()) {
                     retrodisc::renderHelpScreen(renderer, help, active);
                 } else {
-                    retrodisc::renderMainScreen(renderer, makeModel(core, cfg), active);
+                    retrodisc::renderMainScreen(renderer, makeModel(core, cfg, options.spectrum),
+                                                active);
                 }
             } else {
                 SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);

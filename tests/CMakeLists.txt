@@ -75,3 +75,8 @@ add_executable(retrodisc_test_resume test_resume.cpp)
 target_link_libraries(retrodisc_test_resume PRIVATE retrodisc_core)
 target_include_directories(retrodisc_test_resume PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME resume COMMAND retrodisc_test_resume)
+
+add_executable(retrodisc_test_spectrum test_spectrum.cpp)
+target_link_libraries(retrodisc_test_spectrum PRIVATE retrodisc_core)
+target_include_directories(retrodisc_test_spectrum PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME spectrum COMMAND retrodisc_test_spectrum)

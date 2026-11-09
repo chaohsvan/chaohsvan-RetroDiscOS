@@ -1,7 +1,9 @@
 #pragma once
 
+#include <array>
 #include <string>
 
+#include "core/spectrum.h"
 #include "display/theme.h"
 
 struct SDL_Renderer;
@@ -21,6 +23,8 @@ struct UiModel {
     std::string discStatus = "NO DISC";
     std::string audioDevice = "null";
     std::string playMode = "NORMAL";
+    bool showSpectrum = false;
+    std::array<float, SpectrumAnalyzer::kBands> spectrum{};
 };
 
 // "01/12", zero padded like a real CD player.

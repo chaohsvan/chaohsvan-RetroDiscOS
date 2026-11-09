@@ -11,6 +11,7 @@
 #include "core/play_mode.h"
 #include "core/player_state.h"
 #include "core/resume.h"
+#include "core/spectrum.h"
 
 namespace retrodisc {
 
@@ -65,6 +66,10 @@ class PlayerCore {
         rng_.seed(seed);
     }
 
+    const SpectrumAnalyzer& spectrum() const {
+        return spectrum_;
+    }
+
     ResumePoint resumePoint() const;
     // Restores track and position for the same disc; false when the saved point
     // belongs to another disc or the player is not in a restorable state.
@@ -100,6 +105,7 @@ class PlayerCore {
     int chunkFrames_ = kFramesPerSector * 10;
     PlayMode mode_ = PlayMode::Normal;
     std::mt19937 rng_{0x5EEDu};
+    SpectrumAnalyzer spectrum_;
     std::string lastError_;
     std::vector<int16_t> buffer_;
 };

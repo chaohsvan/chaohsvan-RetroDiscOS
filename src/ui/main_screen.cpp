@@ -51,6 +51,16 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme&
     // Reserve the right third for the total time so the big clock never runs off screen.
     const int bigBudget = (width * 62) / 100 - margin;
     const int scaleBig = clampInt(std::min(height / 16, bigBudget / (5 * kGlyphAdvance)), 4, 28);
+    const int statusScale = std::max(2, scaleSmall - 1);
+    const int lineHeight = textHeight(statusScale) + margin / 4;
+
+    // --- Layout ------------------------------------------------------------
+    const int barHeight = std::max(6, height / 60);
+    const int barY = height - margin - barHeight;
+    const int statusY = barY - textHeight(statusScale) - margin / 2;
+    const int deviceY = statusY - lineHeight;
+    const int timeY = margin + textHeight(scaleSmall) + margin / 2;
+    const int timeBottom = timeY + textHeight(scaleBig);
 
     // --- Row 1: track counter and title -----------------------------------
     const std::string counter = formatTrackCounter(model.trackNumber, model.trackCount);
@@ -68,7 +78,6 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme&
     // --- Row 2: elapsed / total -------------------------------------------
     const std::string elapsed = formatTime(model.elapsedMs);
     const std::string total = formatTime(model.totalMs);
-    const int timeY = margin + textHeight(scaleSmall) + margin / 2;
     drawText(renderer, margin, timeY, scaleBig, elapsed);
 
     setColor(renderer, theme.dim);
@@ -80,9 +89,26 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme&
     const int totalY = timeY + textHeight(scaleBig) - textHeight(totalScale);
     drawText(renderer, totalX, totalY, totalScale, "/" + total);
 
+    // --- Spectrum (F9): fills the gap between the clock and the status rows -
+    if (model.showSpectrum) {
+        const int top = timeBottom + margin / 2;
+        const int bottom = deviceY - margin / 2;
+        const int available = bottom - top;
+        if (available > textHeight(statusScale)) {
+            const int bandWidth = (width - 2 * margin) / SpectrumAnalyzer::kBands;
+            for (int band = 0; band < SpectrumAnalyzer::kBands; ++band) {
+                const float level =
+                    std::clamp(model.spectrum[static_cast<std::size_t>(band)], 0.0f, 1.0f);
+                const int barHeightPixels = std::max(1, static_cast<int>(level * available));
+                const SDL_Rect bar{margin + band * bandWidth + 1, bottom - barHeightPixels,
+                                   std::max(1, bandWidth - 3), barHeightPixels};
+                setColor(renderer, band % 3 == 0 ? theme.accent : theme.foreground);
+                SDL_RenderFillRect(renderer, &bar);
+            }
+        }
+    }
+
     // --- Progress bar ------------------------------------------------------
-    const int barHeight = std::max(6, height / 60);
-    const int barY = height - margin - barHeight;
     setColor(renderer, theme.dim);
     const SDL_Rect barBackground{margin, barY, width - 2 * margin, barHeight};
     SDL_RenderFillRect(renderer, &barBackground);
@@ -96,9 +122,7 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme&
         SDL_RenderFillRect(renderer, &filled);
     }
 
-    // --- Rows 3/4: state, volume, disc and device --------------------------
-    const int statusScale = std::max(2, scaleSmall - 1);
-    const int statusY = barY - textHeight(statusScale) - margin / 2;
+    // --- Rows 3/4: state, volume, mode, disc and device --------------------
     std::string status = model.state;
     if (!model.playMode.empty()) {
         status += "  ";
@@ -110,7 +134,6 @@ void renderMainScreen(SDL_Renderer* renderer, const UiModel& model, const Theme&
     setColor(renderer, theme.foreground);
     drawText(renderer, margin, statusY, statusScale, status);
 
-    const int deviceY = statusY - textHeight(statusScale) - margin / 4;
     const std::string deviceLine = model.discStatus + "  " + model.audioDevice;
     setColor(renderer, theme.dim);
     drawText(renderer, margin, deviceY, statusScale,
