@@ -56,13 +56,23 @@ if [ -r "/sys/class/block/$(basename "$DEV")/device/model" ]; then
 fi
 
 hdr "Media"
-if ! size=$(blockdev --getsize64 "$DEV" 2>&1); then
-    say "- \`blockdev\`: $size"
-    say ""
-    say "**No medium.** Push the tray in by hand and try again."
-    exit 3
+# Read the capacity from sysfs: minimal Debian images do not ship blockdev.
+name=$(basename "$DEV")
+size=0
+if [ -r "/sys/class/block/$name/size" ]; then
+    sectors=$(cat "/sys/class/block/$name/size" 2>/dev/null || echo 0)
+    size=$((sectors * 512))
+elif command -v blockdev >/dev/null 2>&1; then
+    size=$(blockdev --getsize64 "$DEV" 2>/dev/null || echo 0)
 fi
-say "- capacity: $((size / 1024 / 1024)) MiB"
+
+# Note: an empty slim drive can still report a bogus capacity, so size alone
+# does not prove there is a disc. cdparanoia below is the real test.
+if [ "$size" -le 0 ]; then
+    say "- capacity: 0"
+else
+    say "- capacity: $((size / 1024 / 1024)) MiB (reported by the drive)"
+fi
 
 hdr "TOC (cdparanoia -vsQ)"
 toc_out=$("cdparanoia" -vsQ -d "$DEV" 2>&1)
@@ -73,8 +83,13 @@ say '```'
 
 if [ "$toc_status" -ne 0 ]; then
     say ""
+    if echo "$toc_out" | grep -qiE "unable to open disc|no medium|no disc|not ready"; then
+        say "**No medium.** The drive is there but holds no readable disc."
+        say "Push the tray in by hand and try again."
+        exit 3
+    fi
     say "**FAIL: cdparanoia could not read the TOC (exit $toc_status).**"
-    say "This usually means the disc is not an audio CD, or the drive cannot read it."
+    say "This means the disc is in the drive but is not readable as an audio CD."
     exit 4
 fi
 
