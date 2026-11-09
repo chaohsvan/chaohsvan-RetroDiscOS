@@ -339,6 +339,25 @@ int main(int argc, char** argv) {
     int lastPrintedSecond = -1;
     bool quit = false;
 
+    // Blanking the display must also kill the backlight, otherwise the panel is
+    // still lit behind a black image. Remember the raw value to restore on wake.
+    int savedBacklightRaw = -1;
+    auto setDisplayOn = [&](bool on) {
+        if (on) {
+            if (savedBacklightRaw >= 0) {
+                backlightDevice.setRaw(savedBacklightRaw);
+                savedBacklightRaw = -1;
+            }
+            displayPower.wake();
+        } else {
+            if (brightness.backlightAvailable() && savedBacklightRaw < 0) {
+                savedBacklightRaw = backlightDevice.raw();
+                backlightDevice.setRaw(0);
+            }
+            displayPower.sleep();
+        }
+    };
+
     auto applyAction = [&](retrodisc::Action action) {
         switch (action) {
             case retrodisc::Action::PlayPause:
@@ -388,8 +407,9 @@ int main(int argc, char** argv) {
                             brightness.backlightPercent());
                 break;
             case retrodisc::Action::DisplayToggle:
-                displayPower.toggle();
-                std::printf("[display] %s\n", displayPower.on() ? "on" : "off");
+                setDisplayOn(!displayPower.on());
+                std::printf("[display] %s  backlight %d%%\n", displayPower.on() ? "on" : "off",
+                            brightness.backlightPercent());
                 break;
             case retrodisc::Action::Spectrum:
                 options.spectrum = !options.spectrum;
@@ -442,8 +462,9 @@ int main(int argc, char** argv) {
     while (!quit && core.state() == retrodisc::PlayerState::Playing && playedFrames < limitFrames) {
         const retrodisc::PowerKeyResult powerEvent = powerKey.poll(0);
         if (powerEvent == retrodisc::PowerKeyResult::ShortPress) {
-            displayPower.toggle();
-            std::printf("[power] short press -> display %s\n", displayPower.on() ? "on" : "off");
+            setDisplayOn(!displayPower.on());
+            std::printf("[power] short press -> display %s  backlight %d%%\n",
+                        displayPower.on() ? "on" : "off", brightness.backlightPercent());
         } else if (powerEvent == retrodisc::PowerKeyResult::LongPress) {
             std::printf("[power] long press -> left to the firmware\n");
         }
@@ -491,8 +512,9 @@ int main(int argc, char** argv) {
                     } else if (escape) {
                         quit = true;
                     } else if (!displayPower.on()) {
-                        displayPower.wake();  // first key only wakes the screen
-                        std::printf("[display] on\n");
+                        setDisplayOn(true);  // first key only wakes the screen
+                        std::printf("[display] woken by key  backlight %d%%\n",
+                                    brightness.backlightPercent());
                     } else if (brightness.wakeFromBlank()) {
                         std::printf("[brightness] woken at %d%%\n", brightness.uiPercent());
                     } else {

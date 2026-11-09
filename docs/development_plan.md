@@ -232,8 +232,8 @@ public:
 | 卡 | 内容 | 验收 |
 |---|---|---|
 | T29 | 背光 sysfs 控制 | ✅ 真机 5 档实测通过，0% 按键唤醒已实现 |
-| T30 | ACPI 电源键 | 🔄 代码与配置完成，待按键实测 |
-| T31 | cpufreq / cpuidle | 播放时 CPU 占用 < 15% |
+| T30 | ACPI 电源键 | ✅ 真机短按 4 次全部生效，含背光联动 |
+| T31 | cpufreq / cpuidle | 🔄 Mock 播放实测 1.3%，待真 CD 复测 |
 | T32 | journald 限额 + tmpfs | ✅ 配置已就位（待 24h 实测） |
 | T33 | USB autosuspend 白名单 | ✅ 规则已就位（待真机验证） |
 | T34 | 功耗实测 | 记录待机/播放/满亮度三档的整机瓦数 |
@@ -412,5 +412,28 @@ RealCDBackend（T24）仍然**卡在 T23 之前不动**——这是计划里写�
 - 笔记本实测：自动发现 `/dev/input/event7 (Power Button)`；drop-in 已装，
   `systemd-analyze cat-config` 显示 `HandlePowerKey=ignore`
 
-**未完成**：物理按键实测。需要重启一次让 logind 读取新配置，然后短按电源键，
-观察日志出现 `[power] short press -> display off/on`。
+**已实测（2026-11-09，重启后）**：
+
+```
+[power] /dev/input/event7 (Power Button)
+[power] short press -> display off  backlight 0%
+[power] short press -> display on  backlight 31%
+[power] short press -> display off  backlight 0%
+[power] short press -> display on  backlight 31%
+```
+
+连按四次全部正确交替；结束后 `sysfs brightness = 37499`（= 原值 31%），
+说明息屏会真正关掉背光、唤醒会精确恢复，而不是只把画面涂黑。
+
+`busctl get-property ... HandlePowerKey` 返回 `"ignore"`，确认 logind 已放权。
+
+### 2026-11-10 · T31 CPU 占用初测
+
+笔记本（i7-9750H，`powersave` 调速器）上 Mock 播放 10 秒采样：
+
+| 项 | 结果 |
+|---|---|
+| CPU 占用 | **1.3%**（目标 < 15%） |
+| 运行核数 | 单线程 |
+| 说明 | Mock 播放不含真实 CD 抓轨开销，真 CD 上线后需复测 |
+
