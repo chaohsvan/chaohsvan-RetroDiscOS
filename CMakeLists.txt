@@ -59,6 +59,8 @@ add_library(retrodisc_core STATIC
   src/core/resume.cpp
   src/core/spectrum.cpp
   src/input/key_mapping.cpp
+  src/input/key_names.cpp
+  src/input/evdev_keyboard.cpp
   src/display/font5x7.cpp
   src/display/text_renderer.cpp
   src/display/theme.cpp
@@ -71,7 +73,7 @@ add_library(retrodisc_core STATIC
   src/system/diagnostics.cpp
 )
 target_include_directories(retrodisc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(retrodisc_core PUBLIC retrodisc_options PkgConfig::SDL2 PkgConfig::ALSA)
+target_link_libraries(retrodisc_core PUBLIC retrodisc_options PkgConfig::SDL2 PkgConfig::ALSA PkgConfig::LIBEVDEV)
 target_compile_definitions(retrodisc_core PUBLIC RETRODISC_VERSION="${PROJECT_VERSION}")
 
 # ---------------------------------------------------------------------------

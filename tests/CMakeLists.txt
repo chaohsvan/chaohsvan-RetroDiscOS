@@ -102,3 +102,8 @@ add_test(NAME alsa COMMAND retrodisc_test_alsa)
 
 add_test(NAME power_storage
          COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_power.sh ${CMAKE_SOURCE_DIR})
+
+add_executable(retrodisc_test_keyboard test_keyboard.cpp)
+target_link_libraries(retrodisc_test_keyboard PRIVATE retrodisc_core)
+target_include_directories(retrodisc_test_keyboard PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME keyboard COMMAND retrodisc_test_keyboard)
