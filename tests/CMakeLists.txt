@@ -1,4 +1,15 @@
 add_executable(retrodisc_smoke test_smoke.cpp)
 target_link_libraries(retrodisc_smoke PRIVATE retrodisc_core)
-target_include_directories(retrodisc_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME smoke COMMAND retrodisc_smoke)
+
+add_executable(retrodisc_test_player_state test_player_state.cpp)
+target_link_libraries(retrodisc_test_player_state PRIVATE retrodisc_core)
+add_test(NAME player_state COMMAND retrodisc_test_player_state)
+
+add_executable(retrodisc_test_event_bus test_event_bus.cpp)
+target_link_libraries(retrodisc_test_event_bus PRIVATE retrodisc_core)
+add_test(NAME event_bus COMMAND retrodisc_test_event_bus)
+
+target_include_directories(retrodisc_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(retrodisc_test_player_state PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(retrodisc_test_event_bus PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
