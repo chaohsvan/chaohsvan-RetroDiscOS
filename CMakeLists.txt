@@ -52,9 +52,13 @@ add_library(retrodisc_core STATIC
   src/audio/audio_interface.cpp
   src/audio/mock_audio.cpp
   src/core/config.cpp
+  src/input/key_mapping.cpp
+  src/display/font5x7.cpp
+  src/display/text_renderer.cpp
+  src/ui/main_screen.cpp
 )
 target_include_directories(retrodisc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(retrodisc_core PUBLIC retrodisc_options)
+target_link_libraries(retrodisc_core PUBLIC retrodisc_options PkgConfig::SDL2)
 target_compile_definitions(retrodisc_core PUBLIC RETRODISC_VERSION="${PROJECT_VERSION}")
 
 # ---------------------------------------------------------------------------

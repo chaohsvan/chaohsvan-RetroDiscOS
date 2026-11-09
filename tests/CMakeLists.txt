@@ -30,3 +30,13 @@ target_include_directories(retrodisc_test_config PRIVATE ${CMAKE_CURRENT_SOURCE_
 target_compile_definitions(retrodisc_test_config PRIVATE
   RETRODISC_CONFIG_DIR="${CMAKE_SOURCE_DIR}/config")
 add_test(NAME config COMMAND retrodisc_test_config)
+
+add_executable(retrodisc_test_key_mapping test_key_mapping.cpp)
+target_link_libraries(retrodisc_test_key_mapping PRIVATE retrodisc_core)
+target_include_directories(retrodisc_test_key_mapping PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME key_mapping COMMAND retrodisc_test_key_mapping)
+
+add_executable(retrodisc_test_render test_render.cpp)
+target_link_libraries(retrodisc_test_render PRIVATE retrodisc_core)
+target_include_directories(retrodisc_test_render PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME render COMMAND retrodisc_test_render)
