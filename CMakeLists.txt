@@ -61,6 +61,8 @@ add_library(retrodisc_core STATIC
   src/input/key_mapping.cpp
   src/input/key_names.cpp
   src/input/evdev_keyboard.cpp
+  src/input/power_key_state.cpp
+  src/input/power_key.cpp
   src/display/font5x7.cpp
   src/display/text_renderer.cpp
   src/display/theme.cpp

@@ -27,6 +27,10 @@ grep -q "08\*" "$RULES" || fail "rules must cover USB mass storage (class 08)"
 grep -q "01\*" "$RULES" || fail "rules must cover USB audio (class 01)"
 grep -q "power/control}=\"on\"" "$RULES" || fail "rules must force power/control=on"
 
+LOGIND="$ROOT/system/logind-retrodisc.conf"
+[ -f "$LOGIND" ] || fail "missing $LOGIND"
+grep -q "^HandlePowerKey=ignore" "$LOGIND" || fail "logind must ignore the power key"
+
 [ -f "$BACKLIGHT_RULES" ] || fail "missing $BACKLIGHT_RULES"
 grep -q "video" "$BACKLIGHT_RULES" || fail "backlight rule must target the video group"
 grep -q "chmod g+w" "$BACKLIGHT_RULES" || fail "backlight rule must make the file group-writable"

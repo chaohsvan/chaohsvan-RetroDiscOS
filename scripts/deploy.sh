@@ -81,9 +81,12 @@ if [ -n "$UNIT_DIR" ]; then
     echo "deploy: unit copied to $UNIT_DIR"
 fi
 if [ -n "$ETC_DIR" ]; then
-    mkdir -p "$ETC_DIR/systemd/journald.conf.d" "$ETC_DIR/udev/rules.d"
+    mkdir -p "$ETC_DIR/systemd/journald.conf.d" "$ETC_DIR/systemd/logind.conf.d" \
+             "$ETC_DIR/udev/rules.d"
     install -m 0644 "$ROOT/system/retrodisc-journald.conf" \
         "$ETC_DIR/systemd/journald.conf.d/retrodisc.conf"
+    install -m 0644 "$ROOT/system/logind-retrodisc.conf" \
+        "$ETC_DIR/systemd/logind.conf.d/retrodisc.conf"
     install -m 0644 "$ROOT/system/90-retrodisc-usb.rules" \
         "$ETC_DIR/udev/rules.d/90-retrodisc-usb.rules"
     install -m 0644 "$ROOT/system/85-retrodisc-backlight.rules" \

@@ -107,3 +107,8 @@ add_executable(retrodisc_test_keyboard test_keyboard.cpp)
 target_link_libraries(retrodisc_test_keyboard PRIVATE retrodisc_core)
 target_include_directories(retrodisc_test_keyboard PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME keyboard COMMAND retrodisc_test_keyboard)
+
+add_executable(retrodisc_test_power_key test_power_key.cpp)
+target_link_libraries(retrodisc_test_power_key PRIVATE retrodisc_core)
+target_include_directories(retrodisc_test_power_key PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME power_key COMMAND retrodisc_test_power_key)

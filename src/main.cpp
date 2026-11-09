@@ -20,6 +20,7 @@
 #include "display/display_power.h"
 #include "display/theme_manager.h"
 #include "input/key_mapping.h"
+#include "input/power_key.h"
 #include "ui/help_screen.h"
 #include "ui/main_screen.h"
 #include "ui/service_screen.h"
@@ -40,6 +41,7 @@ struct Options {
     bool showService = false;
     bool spectrum = false;
     bool backlightTest = false;
+    std::string powerKeyPath;  // empty = auto-detect
 };
 
 void printUsage() {
@@ -62,6 +64,7 @@ void printUsage() {
         "  --show-service    Open SERVICE MODE at startup (needs --render)\n"
         "  --spectrum        Enable the F9 spectrum display at startup\n"
         "  --backlight-test  Cycle the hardware backlight and restore it (no SDL)\n"
+        "  --power-key PATH  evdev device for the power button (default: auto-detect)\n"
         "  --fast            Do not pace audio to real time\n"
         "  --help            Show this help\n"
         "\n"
@@ -153,6 +156,7 @@ int main(int argc, char** argv) {
     options.showService = hasFlag(argc, argv, "--show-service");
     options.spectrum = hasFlag(argc, argv, "--spectrum");
     options.backlightTest = hasFlag(argc, argv, "--backlight-test");
+    if (const char* pk = valueOf(argc, argv, "--power-key")) options.powerKeyPath = pk;
     if (const char* level = valueOf(argc, argv, "--brightness"))
         options.brightnessLevel = std::atoi(level);
 
@@ -190,6 +194,23 @@ int main(int argc, char** argv) {
     retrodisc::SysfsBacklight backlightDevice;
     retrodisc::BrightnessController brightness(&backlightDevice);
     retrodisc::DisplayPower displayPower;
+    retrodisc::PowerKey powerKey;
+    if (!options.powerKeyPath.empty()) {
+        if (powerKey.open(options.powerKeyPath)) {
+            std::printf("[power] %s (%s)\n", powerKey.path().c_str(), powerKey.name().c_str());
+        } else {
+            std::printf("[power] cannot open %s: %s\n", options.powerKeyPath.c_str(),
+                        powerKey.lastError().c_str());
+        }
+    } else {
+        const std::string device = retrodisc::findPowerKeyDevice();
+        if (!device.empty() && powerKey.open(device)) {
+            std::printf("[power] %s (%s)\n", powerKey.path().c_str(), powerKey.name().c_str());
+        } else {
+            std::printf("[power] no power button device; logind keeps handling the key\n");
+        }
+    }
+
     retrodisc::HelpScreen help;
     if (options.showHelp) help.show();
     retrodisc::ServiceScreen service;
@@ -419,6 +440,14 @@ int main(int argc, char** argv) {
     };
 
     while (!quit && core.state() == retrodisc::PlayerState::Playing && playedFrames < limitFrames) {
+        const retrodisc::PowerKeyResult powerEvent = powerKey.poll(0);
+        if (powerEvent == retrodisc::PowerKeyResult::ShortPress) {
+            displayPower.toggle();
+            std::printf("[power] short press -> display %s\n", displayPower.on() ? "on" : "off");
+        } else if (powerEvent == retrodisc::PowerKeyResult::LongPress) {
+            std::printf("[power] long press -> left to the firmware\n");
+        }
+
         const int frames = core.tick();
         if (frames <= 0 && core.state() != retrodisc::PlayerState::Playing) break;
         playedFrames += frames;

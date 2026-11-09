@@ -36,6 +36,16 @@ fi
 usage=$(journalctl --disk-usage 2>/dev/null | sed 's/^Archived.*take up //' || echo "unknown")
 echo "         current journal usage: ${usage:-unknown}"
 
+# --- logind power key --------------------------------------------------------
+powerkey=$(systemd-analyze cat-config systemd/logind.conf 2>/dev/null |
+           awk -F= '/^HandlePowerKey=/ {print $2; exit}')
+if [ "${powerkey:-}" = "ignore" ]; then
+    echo "  [ok]   logind HandlePowerKey=ignore (player handles short presses)"
+else
+    echo "  [warn] logind HandlePowerKey=${powerkey:-default}"
+    problems=$((problems + 1))
+fi
+
 # --- USB power --------------------------------------------------------------
 sleeping=0
 for dev in /sys/bus/usb/devices/*; do

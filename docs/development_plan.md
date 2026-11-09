@@ -232,7 +232,7 @@ public:
 | 卡 | 内容 | 验收 |
 |---|---|---|
 | T29 | 背光 sysfs 控制 | ✅ 真机 5 档实测通过，0% 按键唤醒已实现 |
-| T30 | ACPI 电源键 | 短按息屏/唤醒，长按仍由固件处理 |
+| T30 | ACPI 电源键 | 🔄 代码与配置完成，待按键实测 |
 | T31 | cpufreq / cpuidle | 播放时 CPU 占用 < 15% |
 | T32 | journald 限额 + tmpfs | ✅ 配置已就位（待 24h 实测） |
 | T33 | USB autosuspend 白名单 | ✅ 规则已就位（待真机验证） |
@@ -399,3 +399,18 @@ RealCDBackend（T24）仍然**卡在 T23 之前不动**——这是计划里写�
 
 发现并修复的问题：最初恢复逻辑只在 5 个档位里找匹配，原亮度 31% 匹配不到就退回 100%，
 把用户屏幕留在了最亮。改为保存/恢复 raw 值。
+
+### 2026-11-10 · T30 电源键（代码完成，待物理按键验证）
+
+- `PowerKeyState`：短按/长按判定，纯状态机，可用合成时间戳测试
+  - 短按（< 1500 ms）在松开时上报 ShortPress
+  - 长按在按住期间越过阈值即上报 LongPress 一次，松手不再重复
+  - 内核自动重复不会重置计时
+- `PowerKey`：evdev 直接读 /dev/input，`findPowerKeyDevice()` 按 KEY_POWER 能力自动发现
+- `system/logind-retrodisc.conf`：`HandlePowerKey=ignore`，否则 logind 会先关机
+  - 长期按住仍由 EC/固件强制断电，这一点不受影响
+- 笔记本实测：自动发现 `/dev/input/event7 (Power Button)`；drop-in 已装，
+  `systemd-analyze cat-config` 显示 `HandlePowerKey=ignore`
+
+**未完成**：物理按键实测。需要重启一次让 logind 读取新配置，然后短按电源键，
+观察日志出现 `[power] short press -> display off/on`。
