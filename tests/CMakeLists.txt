@@ -10,6 +10,11 @@ add_executable(retrodisc_test_event_bus test_event_bus.cpp)
 target_link_libraries(retrodisc_test_event_bus PRIVATE retrodisc_core)
 add_test(NAME event_bus COMMAND retrodisc_test_event_bus)
 
+add_executable(retrodisc_test_mock_cd test_mock_cd.cpp)
+target_link_libraries(retrodisc_test_mock_cd PRIVATE retrodisc_core)
+add_test(NAME mock_cd COMMAND retrodisc_test_mock_cd)
+
 target_include_directories(retrodisc_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(retrodisc_test_player_state PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(retrodisc_test_event_bus PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(retrodisc_test_mock_cd PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
