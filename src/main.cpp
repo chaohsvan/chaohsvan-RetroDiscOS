@@ -305,12 +305,21 @@ int main(int argc, char** argv) {
         if (renderer == nullptr && window != nullptr) {
             renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
         }
+        if (renderer != nullptr) {
+            // A CD player has no pointer; keep it off the screen entirely.
+            SDL_ShowCursor(SDL_DISABLE);
+        }
         if (renderer == nullptr) {
             std::fprintf(stderr, "[error] cannot create renderer: %s\n", SDL_GetError());
             if (window != nullptr) SDL_DestroyWindow(window);
             SDL_Quit();
             return 1;
         }
+    }
+
+    if (renderer != nullptr) {
+        std::printf("[ui] cursor %s\n",
+                    SDL_ShowCursor(SDL_QUERY) == SDL_DISABLE ? "hidden" : "visible");
     }
 
     if (options.autoDisc) {
@@ -506,6 +515,7 @@ int main(int argc, char** argv) {
             SDL_Event event;
             while (SDL_PollEvent(&event) != 0) {
                 if (event.type == SDL_QUIT) quit = true;
+                if (event.type == SDL_MOUSEMOTION) SDL_ShowCursor(SDL_DISABLE);
                 if (event.type == SDL_KEYDOWN) {
                     const bool escape = event.key.keysym.sym == SDLK_ESCAPE;
                     const char* name = SDL_GetKeyName(event.key.keysym.sym);
