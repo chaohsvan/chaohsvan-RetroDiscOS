@@ -60,3 +60,8 @@ add_executable(retrodisc_test_help test_help.cpp)
 target_link_libraries(retrodisc_test_help PRIVATE retrodisc_core)
 target_include_directories(retrodisc_test_help PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME help COMMAND retrodisc_test_help)
+
+add_executable(retrodisc_test_service test_service.cpp)
+target_link_libraries(retrodisc_test_service PRIVATE retrodisc_core)
+target_include_directories(retrodisc_test_service PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME service COMMAND retrodisc_test_service)

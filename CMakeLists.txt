@@ -63,6 +63,8 @@ add_library(retrodisc_core STATIC
   src/display/backlight.cpp
   src/ui/main_screen.cpp
   src/ui/help_screen.cpp
+  src/ui/service_screen.cpp
+  src/system/diagnostics.cpp
 )
 target_include_directories(retrodisc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(retrodisc_core PUBLIC retrodisc_options PkgConfig::SDL2)

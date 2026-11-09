@@ -21,6 +21,7 @@
 #include "input/key_mapping.h"
 #include "ui/help_screen.h"
 #include "ui/main_screen.h"
+#include "ui/service_screen.h"
 
 namespace {
 
@@ -35,6 +36,7 @@ struct Options {
     std::string screenshot;
     int brightnessLevel = -1;  // -1 = leave at 100 %
     bool showHelp = false;
+    bool showService = false;
 };
 
 void printUsage() {
@@ -54,6 +56,7 @@ void printUsage() {
         "  --screenshot FILE Save the first frame as a BMP (requires --render)\n"
         "  --brightness N    UI brightness level 0..4 => 100/75/50/25/0 percent\n"
         "  --show-help       Open the help screen at startup (needs --render)\n"
+        "  --show-service    Open SERVICE MODE at startup (needs --render)\n"
         "  --fast            Do not pace audio to real time\n"
         "  --help            Show this help\n"
         "\n"
@@ -135,6 +138,7 @@ int main(int argc, char** argv) {
     if (const char* theme = valueOf(argc, argv, "--theme")) options.theme = theme;
     if (const char* shot = valueOf(argc, argv, "--screenshot")) options.screenshot = shot;
     options.showHelp = hasFlag(argc, argv, "--show-help");
+    options.showService = hasFlag(argc, argv, "--show-service");
     if (const char* level = valueOf(argc, argv, "--brightness"))
         options.brightnessLevel = std::atoi(level);
 
@@ -174,6 +178,8 @@ int main(int argc, char** argv) {
     retrodisc::DisplayPower displayPower;
     retrodisc::HelpScreen help;
     if (options.showHelp) help.show();
+    retrodisc::ServiceScreen service;
+    if (options.showService) service.show();
     if (options.brightnessLevel >= 0) brightness.setUiLevel(options.brightnessLevel);
     std::printf("[backlight] %s\n", brightness.backlightAvailable()
                                         ? backlightDevice.path().c_str()
@@ -311,7 +317,20 @@ int main(int argc, char** argv) {
                 std::printf("[display] %s\n", displayPower.on() ? "on" : "off");
                 break;
             case retrodisc::Action::Help:
-                help.toggle();
+                if (help.visible()) {
+                    help.hide();
+                } else {
+                    service.hide();
+                    help.show();
+                }
+                break;
+            case retrodisc::Action::Service:
+                if (service.visible()) {
+                    service.hide();
+                } else {
+                    help.hide();
+                    service.show();
+                }
                 break;
             case retrodisc::Action::Quit:
                 quit = true;
@@ -345,7 +364,15 @@ int main(int argc, char** argv) {
                     const retrodisc::Action action =
                         name != nullptr ? keys.resolve(name) : retrodisc::Action::None;
 
-                    if (help.visible()) {
+                    if (service.visible()) {
+                        if (escape || action == retrodisc::Action::Service) {
+                            service.hide();
+                        } else if (action == retrodisc::Action::VolUp) {
+                            service.scrollBy(-1);
+                        } else if (action == retrodisc::Action::VolDown) {
+                            service.scrollBy(1);
+                        }
+                    } else if (help.visible()) {
                         // In help: UP/DOWN scroll, H or ESC closes. Nothing else leaks through.
                         if (escape || action == retrodisc::Action::Help) {
                             help.hide();
@@ -366,7 +393,9 @@ int main(int argc, char** argv) {
             }
             if (displayPower.on()) {
                 const retrodisc::Theme& active = brightness.apply(themes.current());
-                if (help.visible()) {
+                if (service.visible()) {
+                    retrodisc::renderServiceScreen(renderer, service, active);
+                } else if (help.visible()) {
                     retrodisc::renderHelpScreen(renderer, help, active);
                 } else {
                     retrodisc::renderMainScreen(renderer, makeModel(core, cfg), active);
