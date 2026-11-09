@@ -49,7 +49,8 @@ config/      player.conf / keys.conf / display.conf
 tests/       CTest 用例
 scripts/     build.sh / test.sh / deploy.sh
 system/      retrodisc.service
-docs/        architecture.md / hardware_test.md / decisions.md
+docs/        architecture.md / decisions.md / development_plan.md /
+             hardware_test.md / vm-test.md / status.md / user_manual.md
 ```
 
 - 一次任务**只改一个模块目录**，跨模块改动必须先在回复里说明原因。
@@ -117,6 +118,10 @@ docs/        architecture.md / hardware_test.md / decisions.md
 ## 10. 参考文档
 
 - `README.md` — PRD + TDD（需求来源，唯一权威需求文档）
-- `docs/architecture.md` — 四层架构与接口签名
-- `docs/decisions.md` — 架构决策记录
-- `docs/hardware_test.md` — 真机验证记录（光驱/DAC/背光/ACPI）
+- `docs/architecture.md` — 四层架构、接口签名、数据流、线程模型
+- `docs/decisions.md` — 架构决策记录 D1–D4
+- `docs/development_plan.md` — 里程碑与任务卡（含已验证项与阻塞原因）
+- `docs/status.md` — 一页纸全景：做到哪、还差什么、卡在哪
+- `docs/hardware_test.md` — 真机验证记录（光驱/背光/电源键/图形/CPU）
+- `docs/vm-test.md` — Debian 虚拟机验证流程与证据
+- `docs/user_manual.md` — 用户手册（DEL-009）

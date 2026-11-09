@@ -46,17 +46,33 @@
 
 ---
 
-## D4 · 当前硬件
+## D4 · 当前硬件与目标机
 
-**状态：有 USB 光驱，无 DAC，无音频 CD 在手**（2026-11-09 确认）
+**状态：目标机已就绪（Debian 13），USB 光驱已接上，仍无音频 CD**（2026-11-10 更新）
 
-已探测到的设备：
+### 目标机（最终设备）
 
 | 项 | 实测值 |
 |---|---|
-| 光驱 | `HL-DT-ST DVDRAM GP78N`，固件 `1.01`，挂在 `/dev/sr0`，USB 外置 |
-| 介质 | 空（`blockdev` 报 "找不到介质"） |
-| 音频设备 | 本机 shell 无 `/dev/snd`，真机播放待定 |
+| 机型 | `ASUSTeK COMPUTER INC. TUF Gaming FX505GT_FX95GT` |
+| CPU | Intel Core i7-9750H（6 核 12 线程，`intel_pstate`，`powersave`） |
+| 内存 / 磁盘 | 15.5 GiB / 根分区 18 GiB |
+| 系统 | Debian GNU/Linux 13 (trixie)，内核 6.12.116 |
+| 显示 | `intel_backlight`（max 120000），`/dev/dri/card0..1`，kmsdrm 可用 |
+| 音频 | `sof-hda-dsp`（Sound Open Firmware）+ NVidia HDMI |
+| 风扇 | hwmon5 双风扇（实测 2700/2800 RPM），**只监测不控制** |
+| 电源 | `AC0` 在线 + `BAT0` |
+| 电源键 | `/dev/input/event7`（`Power Button`，KEY_POWER） |
+
+### 光驱
+
+| 项 | 实测值 |
+|---|---|
+| 型号 | `HL-DT-ST DVDRAM GP78N`，固件 `1.01`，USB 外置，`/dev/sr0` |
+| 介质 | 空（无盘时 `cdparanoia` 报 "Unable to open disc"） |
+
+> 注意：空的 slim 光驱会报告一个假容量（2097151 扇区），**不能用容量判断是否有盘**，
+> 必须看 `cdparanoia` 的错误类型。
 
 **光驱能力**（`cd-drive` 实测）：
 
@@ -81,5 +97,13 @@
 - CD-007「弹出前停止播放并释放设备」照常实现，但释放动作止于弹出。
 - 没有 DAC 时先用板载声卡代替，`IAudioBackend` 的设备名走配置，不写死。
 
-**Step 4 待办**：需要一张正版音频 CD，然后跑 `cdparanoia -vsQ` 与
-`cdparanoia -B -d /dev/sr0 1`，把结果记入 `docs/hardware_test.md`。
+**Step 4 待办**：需要一张正版音频 CD，然后跑 `scripts/cdda_spike.sh --rip`，
+把报告贴进 `docs/hardware_test.md`。
+
+**已经落地、依赖硬件的决策**（详见 `docs/hardware_test.md`）：
+
+- 背光：udev 规则把 `/sys/class/backlight/*/brightness` 改成 `video` 组可写，
+  真机五档回读全中，按 raw 值精确恢复。
+- 电源键：logind `HandlePowerKey=ignore` + 播放器读 evdev；短按息屏（连背光一起关），
+  长按仍由固件断电。
+- 显示：真机用 SDL `kmsdrm` 直接跑在 tty2 上，已验证可渲染、可收键。
