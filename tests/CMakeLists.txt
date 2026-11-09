@@ -91,3 +91,6 @@ add_test(NAME permissions
 
 add_test(NAME cdda_spike
          COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_spike.sh ${CMAKE_SOURCE_DIR})
+
+add_test(NAME hw_survey
+         COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_survey.sh ${CMAKE_SOURCE_DIR})
