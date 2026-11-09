@@ -7,6 +7,7 @@ PREFIX="${RETRODISC_PREFIX:-/opt/retrodisc}"
 BUILD_DIR="build"
 UNIT_DIR=""
 TMPFILES_DIR=""
+ETC_DIR=""
 INSTALL_CONFIG=1
 
 usage() {
@@ -17,6 +18,9 @@ Usage: scripts/deploy.sh [options]
   --build DIR       build directory (default build)
   --unit-dir DIR    also copy retrodisc.service here (e.g. /etc/systemd/system)
   --tmpfiles-dir DIR  also copy the tty tmpfiles rule here (e.g. /etc/tmpfiles.d)
+  --etc-dir DIR       also install journald limits and USB power rules under DIR
+                      (e.g. --etc-dir /etc puts them in /etc/systemd/journald.conf.d
+                       and /etc/udev/rules.d)
   --skip-config     do not install config files
   -h, --help        show this help
 
@@ -30,6 +34,7 @@ while [ $# -gt 0 ]; do
         --build) BUILD_DIR="$2"; shift 2 ;;
         --unit-dir) UNIT_DIR="$2"; shift 2 ;;
         --tmpfiles-dir) TMPFILES_DIR="$2"; shift 2 ;;
+        --etc-dir) ETC_DIR="$2"; shift 2 ;;
         --skip-config) INSTALL_CONFIG=0; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "deploy: unknown option: $1" >&2; exit 2 ;;
@@ -74,6 +79,14 @@ if [ -n "$UNIT_DIR" ]; then
     mkdir -p "$UNIT_DIR"
     install -m 0644 "$ROOT/system/retrodisc.service" "$UNIT_DIR/retrodisc.service"
     echo "deploy: unit copied to $UNIT_DIR"
+fi
+if [ -n "$ETC_DIR" ]; then
+    mkdir -p "$ETC_DIR/systemd/journald.conf.d" "$ETC_DIR/udev/rules.d"
+    install -m 0644 "$ROOT/system/retrodisc-journald.conf" \
+        "$ETC_DIR/systemd/journald.conf.d/retrodisc.conf"
+    install -m 0644 "$ROOT/system/90-retrodisc-usb.rules" \
+        "$ETC_DIR/udev/rules.d/90-retrodisc-usb.rules"
+    echo "deploy: journald and udev rules copied under $ETC_DIR"
 fi
 if [ -n "$TMPFILES_DIR" ]; then
     mkdir -p "$TMPFILES_DIR"

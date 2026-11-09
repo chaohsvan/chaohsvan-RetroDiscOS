@@ -1,0 +1,5 @@
+# Snippet for /etc/fstab (not installed automatically).
+#
+# Debian 13 already mounts /tmp as tmpfs; this line only documents the intent
+# and caps its size so a runaway temp file cannot eat RAM (PRD 3.4).
+tmpfs  /tmp  tmpfs  defaults,noatime,nosuid,nodev,mode=1777,size=512M  0 0

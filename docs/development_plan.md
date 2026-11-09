@@ -234,8 +234,8 @@ public:
 | T29 | 背光 sysfs 控制 | 5 档实测有效，0% 时键盘可唤醒 |
 | T30 | ACPI 电源键 | 短按息屏/唤醒，长按仍由固件处理 |
 | T31 | cpufreq / cpuidle | 播放时 CPU 占用 < 15% |
-| T32 | journald 限额 + tmpfs | 24 小时日志增量 < 10 MB |
-| T33 | USB autosuspend 白名单 | 光驱/DAC 使用期间不掉线 |
+| T32 | journald 限额 + tmpfs | ✅ 配置已就位（待 24h 实测） |
+| T33 | USB autosuspend 白名单 | ✅ 规则已就位（待真机验证） |
 | T34 | 功耗实测 | 记录待机/播放/满亮度三档的整机瓦数 |
 
 ## 6. M6：稳定性与验收

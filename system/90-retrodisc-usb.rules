@@ -1,0 +1,9 @@
+# Installed as /etc/udev/rules.d/90-retrodisc-usb.rules
+#
+# USB autosuspend can drop the CD drive or the DAC in the middle of playback
+# (PRD 3.3). Keep only the device classes we care about awake:
+#   interface class 08 = mass storage (USB CD/DVD drive, USB stick)
+#   interface class 01 = audio (USB DAC)
+# Everything else keeps the default power management.
+ACTION=="add|change", SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:08*", TEST=="power/control", ATTR{power/control}="on"
+ACTION=="add|change", SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:01*", TEST=="power/control", ATTR{power/control}="on"

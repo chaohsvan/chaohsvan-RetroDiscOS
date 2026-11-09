@@ -99,3 +99,6 @@ add_executable(retrodisc_test_alsa test_alsa.cpp)
 target_link_libraries(retrodisc_test_alsa PRIVATE retrodisc_core)
 target_include_directories(retrodisc_test_alsa PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME alsa COMMAND retrodisc_test_alsa)
+
+add_test(NAME power_storage
+         COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_power.sh ${CMAKE_SOURCE_DIR})
