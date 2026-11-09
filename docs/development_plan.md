@@ -13,7 +13,7 @@
 | M0 | 需求确认、架构设计、工程规则 | — | ✅ |
 | M1 | 播放器核心 + Mock 后端（可跑通全流程） | M0 | ✅ |
 | M2 | 显示界面与交互（主题、亮度、HELP、SERVICE） | M1 | ✅ |
-| M3 | Debian 系统集成（systemd、自启动、权限） | M1 | 🔄 下一步 |
+| M3 | Debian 系统集成（systemd、自启动、权限） | M1 | 🔄 T17 待验证 |
 | M4 | 真机光驱与 DAC 适配 | M1、真机 | ⬜ |
 | M5 | 电源、背光、功耗优化 | M3、M4 | ⬜ |
 | M6 | 稳定性与验收 | M2–M5 | ⬜ |
@@ -342,3 +342,21 @@ $ SDL_VIDEODRIVER=dummy ./build/retrodisc --mock --auto-disc
 1. 点阵字体仅覆盖 ASCII，界面与帮助文本为英文；中文需要扩字库或引入 FreeType（后者违反当前依赖约束，需人工决策）。
 2. 频谱为 16 段 Goertzel，不是 FFT，频率分辨率较粗。
 3. 背光在台式机上不可用，只验证了降级路径；真机验证留给 M5。
+
+### 2026-11-09 · M3 进行中（T18–T22 完成，T17 待验证）
+
+| 卡 | 结果 |
+|---|---|
+| T18 systemd 服务 | ✅ 专用 tty1、Restart=on-failure + RestartSec=3、加固项齐全 |
+| T19 图形会话 | ✅ 有 X/Wayland 用之，否则 SDL kmsdrm；异常退出码 78 防重启风暴 |
+| T20 权限 | ✅ check_permissions.sh 检查 /dev/sr0 与 /dev/snd，给出修复命令 |
+| T21 部署 | ✅ deploy.sh 装二进制/配置/单元，配置不覆盖，保留 previous |
+| T22 回滚 | ✅ rollback.sh 交换 current/previous，无备份时明确失败 |
+| T17 Debian VM | ⬜ 需要 qemu（未安装）+ 约 350 MB 镜像 + 在 VM 内重新编译 |
+
+验证方式说明：T18–T22 全部通过**不依赖虚拟机**的测试（`ctest` 19/19），
+包括 `systemd-analyze verify`、脚本退出码、参数透传、临时前缀下的真实部署与回滚。
+
+T17 未完成的原因：本机没有 qemu/virt-install/VirtualBox。可行方案是
+qemu + Debian cloud image + cloud-init（`/dev/kvm` 可用），但需要在 VM 内
+重新编译（Ubuntu 26.04 的 glibc 比 Debian 13 新，二进制不可直接复用）。
