@@ -33,4 +33,7 @@ if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
     export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-kmsdrm}"
 fi
 
-exec "$BIN" --config "$CONFIG" "$@"
+# RETRODISC_EXTRA lets a deployment pass extra flags (e.g. "--mock" on a VM
+# without a CD drive) without editing this script or the unit file.
+# shellcheck disable=SC2086
+exec "$BIN" --config "$CONFIG" ${RETRODISC_EXTRA:-} "$@"

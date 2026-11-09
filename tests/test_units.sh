@@ -59,6 +59,10 @@ out=$(RETRODISC_BIN=/bin/echo RETRODISC_CONFIG=/tmp "$SESSION" --mock 2>&1)
 echo "$out" | grep -q -- "--config /tmp" || fail "script should pass --config to the player"
 echo "$out" | grep -q -- "--mock" || fail "script should forward extra arguments"
 
+# Extra flags from the environment are forwarded (used for VM/mock testing).
+out=$(RETRODISC_BIN=/bin/echo RETRODISC_CONFIG=/tmp RETRODISC_EXTRA="--mock --seconds 5" "$SESSION" 2>&1)
+echo "$out" | grep -q -- "--mock --seconds 5" || fail "RETRODISC_EXTRA should be forwarded"
+
 # Without a windowing system the launcher must select the KMS/DRM backend.
 probe=$(mktemp)
 printf '#!/bin/sh\necho "SDL_VIDEODRIVER=${SDL_VIDEODRIVER:-unset}"\n' > "$probe"
