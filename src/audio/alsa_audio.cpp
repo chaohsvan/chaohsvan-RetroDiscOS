@@ -38,6 +38,10 @@ bool ALSAAudioBackend::open(const std::string& device) {
         return false;
     }
 
+    // Non-blocking + explicit waits: a stalled device must surface as an error,
+    // never as a frozen UI (a blocking writei hung the player once already).
+    snd_pcm_nonblock(pcm_, 1);
+
     snd_pcm_prepare(pcm_);
     device_ = device;
     framesWritten_ = 0;
@@ -66,12 +70,16 @@ bool ALSAAudioBackend::start() {
         if (rc < 0) {
             // Some devices cannot resume from pause; restart instead.
             snd_pcm_prepare(pcm_);
+            snd_pcm_start(pcm_);
         }
         state_ = AudioState::Running;
         return true;
     }
 
     snd_pcm_prepare(pcm_);
+    // Without an explicit start the stream can stay PREPARED: hw_ptr never
+    // advances, the buffer fills once and every later write blocks.
+    snd_pcm_start(pcm_);
     state_ = AudioState::Running;
     return true;
 }
@@ -109,6 +117,7 @@ bool ALSAAudioBackend::setVolume(float volume) {
 bool ALSAAudioBackend::recover(int error) {
     if (error == -EPIPE) {  // underrun: restart the stream
         snd_pcm_prepare(pcm_);
+        snd_pcm_start(pcm_);
         return true;
     }
     if (error == -ESTRPIPE) {  // suspended by the system
@@ -140,9 +149,26 @@ int ALSAAudioBackend::write(const int16_t* frames, int frameCount) {
 
     int written = 0;
     int retries = 0;
+    int waitedMs = 0;
     while (written < frameCount) {
         const int rc = snd_pcm_writei(pcm_, source + static_cast<std::size_t>(written) * kChannels,
                                       static_cast<snd_pcm_uframes_t>(frameCount - written));
+        if (rc == -EAGAIN) {
+            const int ready = snd_pcm_wait(pcm_, 100);
+            if (ready < 0) {
+                if (!recover(ready) || ++retries > 4) {
+                    setError(std::string("snd_pcm_wait: ") + snd_strerror(ready));
+                    return written > 0 ? written : -1;
+                }
+            } else if (ready == 0) {
+                waitedMs += 100;
+                if (waitedMs > 2000) {
+                    setError("audio output stalled for 2 s");
+                    return written > 0 ? written : -1;
+                }
+            }
+            continue;
+        }
         if (rc < 0) {
             if (!recover(rc) || ++retries > 4) {
                 setError(std::string("snd_pcm_writei: ") + snd_strerror(rc));

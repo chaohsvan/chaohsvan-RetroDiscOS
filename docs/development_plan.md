@@ -521,3 +521,23 @@ RealCDBackend（T24）仍然**卡在 T23 之前不动**——这是计划里写�
 
 另外目标机的 ALSA **没有 `default` 设备**（没有 PulseAudio/PipeWire），
 必须写 `plughw:1,0`（sof-hda-dsp 是 card 1）。
+
+### 2026-11-10 · 真机播放卡死，两个根因
+
+第一次在 tty2 上跑真盘，画面出来了但**声音没有、进度停在 00:05**。排查后发现两个独立问题：
+
+1. **ALSA 流从未 start**：`snd_pcm_writei` 把数据写进缓冲后，
+   `hw_ptr` 始终是 0、状态停在 `PREPARED`，于是第二次写入永久阻塞。
+   修法：`start()` 与欠载恢复后都显式 `snd_pcm_start()`；
+   同时改成非阻塞 + `snd_pcm_wait(100ms)`，累计 2 秒无进展就报错退出，
+   **绝不允许把整个播放器挂死**。
+2. **每读一小块都 seek**：`readFrames(2352 帧)` 每次调用都
+   `cdio_paranoia_seek()`，paranoia 于是反复重读重叠窗口校验；
+   实测 4 扇区要 3–5 秒（整碟要几小时）。
+   修法：记录 `nextLsn_`，顺序读时**不 seek**。修完后首块 3.3 s（含起转），
+   后续每块 0 ms。
+
+顺带把 paranoia 模式从 `FULL` 改成 `FULL ^ NEVERSKIP`——读坏时重试到天荒地老是
+抓轨工具的行为，播放器必须继续走。模式可用 `RETRODISC_PARANOIA_MODE` 覆盖以便排查。
+
+修完实测：`--real --seconds 12` 连续播放 12 秒，进度每秒推进一次，干净退出。

@@ -60,7 +60,9 @@ class RealCDBackend : public ICDBackend {
     cdtext_t* cdtext_ = nullptr;
 
     DiscInfo disc_;
-    lsn_t firstLsn_ = 0;  // absolute LSN of track 1, used to normalise offsets
+    lsn_t firstLsn_ = 0;      // absolute LSN of track 1, used to normalise offsets
+    lsn_t nextLsn_ = -1;      // where the drive head expects to continue
+    bool sequential_ = false; // true while reading forward without a seek
     bool opened_ = false;
 
     long readErrors_ = 0;

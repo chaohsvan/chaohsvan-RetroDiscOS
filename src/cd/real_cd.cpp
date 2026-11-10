@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cstdlib>
 #include <cstring>
 #include <utility>
 
@@ -101,8 +102,13 @@ bool RealCDBackend::open() {
         teardown();
         return false;
     }
-    // Full verification: re-read suspicious sectors instead of emitting clicks.
-    cdio_paranoia_modeset(paranoia_, PARANOIA_MODE_FULL);
+    // Maximum verification, but without NEVERSKIP: retrying a bad sector forever
+    // is fine for a ripper, not for a player that must keep time.
+    int paranoiaMode = PARANOIA_MODE_FULL ^ PARANOIA_MODE_NEVERSKIP;
+    if (const char* override_mode = std::getenv("RETRODISC_PARANOIA_MODE")) {
+        paranoiaMode = std::atoi(override_mode);
+    }
+    cdio_paranoia_modeset(paranoia_, paranoiaMode);
 
     cdtext_ = cdio_get_cdtext(cdio_);
     opened_ = true;
@@ -111,6 +117,8 @@ bool RealCDBackend::open() {
 }
 
 void RealCDBackend::close() {
+    sequential_ = false;
+    nextLsn_ = -1;
     teardown();
     opened_ = false;
     disc_ = DiscInfo{};
@@ -137,6 +145,8 @@ DiscInfo RealCDBackend::readTOC() {
         return info;
     }
 
+    sequential_ = false;
+    nextLsn_ = -1;
     firstLsn_ = cdio_get_track_lsn(cdio_, first);
     if (firstLsn_ == CDIO_INVALID_LSN) {
         setError("cannot read the first track position");
@@ -205,10 +215,19 @@ int RealCDBackend::readFrames(int trackNumber, int startLba, int frameCount,
     const int sectors = (framesWanted + kFramesPerSector - 1) / kFramesPerSector;
 
     const lsn_t absolute = firstLsn_ + track->startLba + startLba;
-    if (cdio_paranoia_seek(paranoia_, static_cast<int32_t>(absolute), SEEK_SET) < 0) {
-        setError("paranoia seek failed");
-        return -1;
+
+    // Seeking on every chunk forces paranoia to re-read its overlap window each
+    // time: measured 3-5 s per 4 sectors. Only seek when the head is not already
+    // where we need it.
+    if (!sequential_ || absolute != nextLsn_) {
+        if (cdio_paranoia_seek(paranoia_, static_cast<int32_t>(absolute), SEEK_SET) < 0) {
+            setError("paranoia seek failed");
+            sequential_ = false;
+            return -1;
+        }
+        sequential_ = true;
     }
+    nextLsn_ = absolute + sectors;
 
     out.reserve(static_cast<std::size_t>(sectors) * kFramesPerSector * kChannels);
     for (int i = 0; i < sectors; ++i) {
