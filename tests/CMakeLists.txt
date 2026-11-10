@@ -112,3 +112,8 @@ add_executable(retrodisc_test_power_key test_power_key.cpp)
 target_link_libraries(retrodisc_test_power_key PRIVATE retrodisc_core)
 target_include_directories(retrodisc_test_power_key PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME power_key COMMAND retrodisc_test_power_key)
+
+add_executable(retrodisc_test_real_cd test_real_cd.cpp)
+target_link_libraries(retrodisc_test_real_cd PRIVATE retrodisc_core)
+target_include_directories(retrodisc_test_real_cd PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME real_cd COMMAND retrodisc_test_real_cd)

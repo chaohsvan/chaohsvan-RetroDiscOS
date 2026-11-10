@@ -153,6 +153,9 @@ sudo scripts/rollback.sh --prefix /opt/retrodisc               # 回滚到上一
 | 键 | 说明 | 默认 |
 |---|---|---|
 | `audio_device` | ALSA 设备名，`null` 表示丢弃 | `null` |
+
+> 真机上 `default` 不一定存在（没有 PulseAudio/PipeWire 时）。用 `aplay -l` 看声卡编号，
+> 例如 sof-hda-dsp 是 card 1，就写 `plughw:1,0`。
 | `volume` | 初始音量 0.0–1.0（软件音量） | `0.8` |
 | `theme` | 初始主题 | `digital-hifi` |
 | `resume_file` | 断点续播文件路径 | — |
@@ -179,6 +182,7 @@ sudo scripts/rollback.sh --prefix /opt/retrodisc               # 回滚到上一
 1. **真实 CD 播放尚未接入**：`RealCDBackend`（M4）要等 CD-DA 抓轨可行性验证通过。
    当前只能以 `--mock` 运行，用模拟光盘跑通全部界面与逻辑。
 2. **界面文字仅支持 ASCII**：点阵字体没有汉字，帮助与诊断页是英文。
-3. **软件音量**：不保证 Bit-Perfect（见 `docs/decisions.md` D2）。
-4. **背光**：需要 udev 规则 + `video` 组；未安装时自动降级为只调界面亮度。
-5. **功耗与长稳**：尚未在真机上做 24 小时连续播放验证。
+3. **中文 CD-Text 会被丢弃**：非 ASCII 标题回退成 `TRACK NN`（见 decisions D5）。
+4. **软件音量**：不保证 Bit-Perfect（见 `docs/decisions.md` D2）。
+5. **背光**：需要 udev 规则 + `video` 组；未安装时自动降级为只调界面亮度。
+6. **功耗与长稳**：尚未在真机上做 24 小时连续播放验证。

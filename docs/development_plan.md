@@ -14,7 +14,7 @@
 | M1 | 播放器核心 + Mock 后端（可跑通全流程） | M0 | ✅ |
 | M2 | 显示界面与交互（主题、亮度、HELP、SERVICE） | M1 | ✅ |
 | M3 | Debian 系统集成（systemd、自启动、权限） | M1 | ✅ |
-| M4 | 真机光驱与 DAC 适配 | M1、真机 | 🔄 T23 已通过，T24 可开工 |
+| M4 | 真机光驱与 DAC 适配 | M1、真机 | 🔄 T23/T24/T25 完成，剩 T26-T28 |
 | M5 | 电源、背光、功耗优化 | M3、M4 | ⬜ |
 | M6 | 稳定性与验收 | M2–M5 | ⬜ |
 
@@ -219,7 +219,7 @@ public:
 | 卡 | 内容 | 前提 |
 |---|---|---|
 | T23 | `cdparanoia` 可行性 spike | ✅ 2026-11-10 通过（自刻 4 轨 CD，见 hardware_test.md） |
-| T24 | `RealCDBackend`（libcdio + paranoia） | T23 通过 |
+| T24 | `RealCDBackend`（libcdio + paranoia） | ✅ 2026-11-10 真机播放通过 |
 | T25 | `ALSAAudioBackend` | ✅ 已完成（设备可用时） |
 | T26 | 设备热插拔与断连处理 | 拔 DAC 不崩溃，显示异常状态 |
 | T27 | 精确 seek（F11/F12） | 定位误差 < 1 秒 |
@@ -496,3 +496,28 @@ RealCDBackend（T24）仍然**卡在 T23 之前不动**——这是计划里写�
   「只看中段且几乎全为精确 0 才算可疑」。
 
 **T24 `RealCDBackend` 现在可以开工**——这是全项目最后一个高风险未知项。
+
+### 2026-11-10 · T24 完成：真机播放跑通
+
+同一张自刻 4 轨 CD，`--real` 模式在目标机上完整跑通：
+
+```
+[mode] real: /dev/sr0 + ALSA "plughw:1,0"
+[toc] 4 tracks, 21:10 total, disc CD-4-0-95324
+[toc] 01 TRACK 01        03:44
+[toc] 02 Waiting For You  05:24
+[state] PLAYING
+[play] track 01  00:01 / 03:44  vol 80%
+```
+
+真机暴露了两个只有插盘才会出现的问题：
+
+1. **double free**：`cdio_cddap_identify_cdio()` 会把 `CdIo_t` 的所有权交给
+   `cdrom_drive_t`，`cdio_cddap_close()` 已释放它；代码里又 `cdio_free()` 了一次。
+   ASan 直接报 `attempting double-free`。修法：drive 存在时不再单独释放 cdio。
+2. **CD-Text 是 GBK**：中文标题按 Latin-1 解出来是乱码，而字体只有 ASCII。
+   新增 `sanitizeCdText()`：非可打印 ASCII 一律丢弃，回退成 `TRACK NN`；
+   英文/数字标题保留。
+
+另外目标机的 ALSA **没有 `default` 设备**（没有 PulseAudio/PipeWire），
+必须写 `plughw:1,0`（sof-hda-dsp 是 card 1）。

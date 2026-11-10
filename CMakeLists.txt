@@ -49,6 +49,7 @@ add_library(retrodisc_core STATIC
   src/core/event_bus.cpp
   src/cd/cd_interface.cpp
   src/cd/mock_cd.cpp
+  src/cd/real_cd.cpp
   src/audio/audio_interface.cpp
   src/audio/mock_audio.cpp
   src/audio/alsa_audio.cpp
@@ -78,7 +79,8 @@ add_library(retrodisc_core STATIC
   src/system/diagnostics.cpp
 )
 target_include_directories(retrodisc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(retrodisc_core PUBLIC retrodisc_options PkgConfig::SDL2 PkgConfig::ALSA PkgConfig::LIBEVDEV)
+target_link_libraries(retrodisc_core PUBLIC retrodisc_options PkgConfig::SDL2 PkgConfig::ALSA PkgConfig::LIBEVDEV
+                     PkgConfig::LIBCDIO PkgConfig::CDIO_PARANOIA)
 target_compile_definitions(retrodisc_core PUBLIC RETRODISC_VERSION="${PROJECT_VERSION}")
 
 # ---------------------------------------------------------------------------

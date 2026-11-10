@@ -2,14 +2,17 @@
 
 #include <algorithm>
 #include <chrono>
+#include <memory>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <string>
 
+#include "audio/alsa_audio.h"
 #include "audio/mock_audio.h"
 #include "cd/mock_cd.h"
+#include "cd/real_cd.h"
 #include "core/config.h"
 #include "core/event_bus.h"
 #include "core/player_core.h"
@@ -43,6 +46,7 @@ struct Options {
     bool spectrum = false;
     bool backlightTest = false;
     std::string powerKeyPath;  // empty = auto-detect
+    std::string cdrom = "/dev/sr0";
 };
 
 void printUsage() {
@@ -66,6 +70,7 @@ void printUsage() {
         "  --spectrum        Enable the F9 spectrum display at startup\n"
         "  --backlight-test  Cycle the hardware backlight and restore it (no SDL)\n"
         "  --power-key PATH  evdev device for the power button (default: auto-detect)\n"
+        "  --cdrom PATH      CD device for real mode (default /dev/sr0)\n"
         "  --fast            Do not pace audio to real time\n"
         "  --help            Show this help\n"
         "\n"
@@ -166,16 +171,11 @@ int main(int argc, char** argv) {
     options.spectrum = hasFlag(argc, argv, "--spectrum");
     options.backlightTest = hasFlag(argc, argv, "--backlight-test");
     if (const char* pk = valueOf(argc, argv, "--power-key")) options.powerKeyPath = pk;
+    if (const char* rom = valueOf(argc, argv, "--cdrom")) options.cdrom = rom;
     if (const char* level = valueOf(argc, argv, "--brightness"))
         options.brightnessLevel = std::atoi(level);
 
     std::printf("RetroDisc OS %s\n", std::string(retrodisc::version()).c_str());
-
-    if (!options.mock) {
-        std::fprintf(stderr, "[error] real backends are not implemented yet (milestone M4)\n");
-        std::fprintf(stderr, "[error] run with --mock to exercise the player core\n");
-        return 2;
-    }
 
     const retrodisc::ConfigResult config = retrodisc::loadConfig(options.configDir);
     for (const auto& warning : config.warnings) {
@@ -247,23 +247,49 @@ int main(int argc, char** argv) {
         }
     });
 
-    retrodisc::MockCDBackend cd;
-    retrodisc::MockAudioBackend audio;
-    audio.setRealtime(!options.fast);
+    std::unique_ptr<retrodisc::ICDBackend> cdBackend;
+    std::unique_ptr<retrodisc::IAudioBackend> audioBackend;
+    retrodisc::MockCDBackend* mockCd = nullptr;
+    retrodisc::MockAudioBackend* mockAudio = nullptr;
 
-    retrodisc::PlayerCore core(cd, audio, bus);
+    if (options.mock) {
+        auto mock_cd = std::make_unique<retrodisc::MockCDBackend>();
+        mockCd = mock_cd.get();
+        cdBackend = std::move(mock_cd);
+
+        auto mock_audio = std::make_unique<retrodisc::MockAudioBackend>();
+        mock_audio->setRealtime(!options.fast);
+        mockAudio = mock_audio.get();
+        audioBackend = std::move(mock_audio);
+    } else {
+        cdBackend = std::make_unique<retrodisc::RealCDBackend>(options.cdrom);
+        audioBackend = std::make_unique<retrodisc::ALSAAudioBackend>();
+        if (cfg.audioDevice == "null") {
+            std::printf("[warn] real mode with audio_device=null: nothing will be heard\n");
+        }
+        std::printf("[mode] real: %s + ALSA \"%s\"\n", options.cdrom.c_str(),
+                    cfg.audioDevice.c_str());
+    }
+
+    retrodisc::PlayerCore core(*cdBackend, *audioBackend, bus);
     // ~53 ms per chunk: fine enough for the disc animation to look alive.
     core.setChunkFrames(retrodisc::kFramesPerSector * 4);
 
-    if (!cd.open()) {
-        std::fprintf(stderr, "[error] cannot open the CD backend\n");
+    if (!cdBackend->open()) {
+        const auto* real = dynamic_cast<retrodisc::RealCDBackend*>(cdBackend.get());
+        std::fprintf(stderr, "[error] cannot open the CD backend%s%s\n",
+                     real != nullptr ? ": " : "",
+                     real != nullptr ? real->lastError().c_str() : "");
         return 1;
     }
-    if (!audio.open(cfg.audioDevice)) {
-        std::fprintf(stderr, "[error] cannot open audio device '%s'\n", cfg.audioDevice.c_str());
+    if (!audioBackend->open(cfg.audioDevice)) {
+        const auto* real = dynamic_cast<retrodisc::ALSAAudioBackend*>(audioBackend.get());
+        std::fprintf(stderr, "[error] cannot open audio device '%s'%s%s\n", cfg.audioDevice.c_str(),
+                     real != nullptr ? ": " : "",
+                     real != nullptr ? real->lastError().c_str() : "");
         return 1;
     }
-    audio.setVolume(cfg.volume);
+    audioBackend->setVolume(cfg.volume);
 
     if (options.backlightTest) {
         if (!brightness.backlightAvailable()) {
@@ -322,10 +348,11 @@ int main(int argc, char** argv) {
                     SDL_ShowCursor(SDL_QUERY) == SDL_DISABLE ? "hidden" : "visible");
     }
 
-    if (options.autoDisc) {
-        cd.insertDisc();
+    if (mockCd != nullptr && options.autoDisc) {
+        mockCd->insertDisc();
         std::printf("[disc] mock disc inserted\n");
     }
+    (void)mockAudio;
 
     if (!core.insertDisc()) {
         std::fprintf(stderr, "[error] %s\n", core.lastError().c_str());
@@ -399,12 +426,12 @@ int main(int argc, char** argv) {
                 break;
             case retrodisc::Action::VolUp:
                 cfg.volume = std::min(1.0f, cfg.volume + 0.05f);
-                audio.setVolume(cfg.volume);
+                audioBackend->setVolume(cfg.volume);
                 std::printf("[vol] %d%%\n", static_cast<int>(cfg.volume * 100.0f + 0.5f));
                 break;
             case retrodisc::Action::VolDown:
                 cfg.volume = std::max(0.0f, cfg.volume - 0.05f);
-                audio.setVolume(cfg.volume);
+                audioBackend->setVolume(cfg.volume);
                 std::printf("[vol] %d%%\n", static_cast<int>(cfg.volume * 100.0f + 0.5f));
                 break;
             case retrodisc::Action::Theme: {

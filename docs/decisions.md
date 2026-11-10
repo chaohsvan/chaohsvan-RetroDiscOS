@@ -107,3 +107,17 @@
 - 电源键：logind `HandlePowerKey=ignore` + 播放器读 evdev；短按息屏（连背光一起关），
   长按仍由固件断电。
 - 显示：真机用 SDL `kmsdrm` 直接跑在 tty2 上，已验证可渲染、可收键。
+
+## D5 · CD-Text 编码与非 ASCII 标题
+
+**决策：非可打印 ASCII 的 CD-Text 一律丢弃，回退成 `TRACK NN`**（2026-11-10）
+
+实测那张自刻 CD 的 CD-Text 是 **GBK** 编码（中文标题），libcdio 按 Latin-1 返回，
+结果是 `K¸èÖ®Íõ` 这种乱码。界面用的是自绘 5×7 点阵字体，**只覆盖 ASCII**，
+即使正确转码也画不出来。
+
+因此 `sanitizeCdText()` 在 backend 层就丢掉非 ASCII 字节，
+`formatTrackTitle()` 自然回退到 `TRACK NN`。英文标题（如 `Waiting For You`）正常保留。
+
+**等字体方案定下来后要回来改这一条**：如果改用 FreeType，就应当把 GBK/UTF-16
+转成 UTF-8 再显示，而不是丢弃。
