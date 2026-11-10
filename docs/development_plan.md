@@ -14,7 +14,7 @@
 | M1 | 播放器核心 + Mock 后端（可跑通全流程） | M0 | ✅ |
 | M2 | 显示界面与交互（主题、亮度、HELP、SERVICE） | M1 | ✅ |
 | M3 | Debian 系统集成（systemd、自启动、权限） | M1 | ✅ |
-| M4 | 真机光驱与 DAC 适配 | M1、真机 | 🔄 待音频 CD |
+| M4 | 真机光驱与 DAC 适配 | M1、真机 | 🔄 T23 已通过，T24 可开工 |
 | M5 | 电源、背光、功耗优化 | M3、M4 | ⬜ |
 | M6 | 稳定性与验收 | M2–M5 | ⬜ |
 
@@ -218,7 +218,7 @@ public:
 
 | 卡 | 内容 | 前提 |
 |---|---|---|
-| T23 | `cdparanoia` 可行性 spike | 一张正版音频 CD |
+| T23 | `cdparanoia` 可行性 spike | ✅ 2026-11-10 通过（自刻 4 轨 CD，见 hardware_test.md） |
 | T24 | `RealCDBackend`（libcdio + paranoia） | T23 通过 |
 | T25 | `ALSAAudioBackend` | ✅ 已完成（设备可用时） |
 | T26 | 设备热插拔与断连处理 | 拔 DAC 不崩溃，显示异常状态 |
@@ -485,3 +485,14 @@ RealCDBackend（T24）仍然**卡在 T23 之前不动**——这是计划里写�
 
 **踩坑记录**：`ssh -T git@github.com` 报 `Connection closed by 198.18.0.9 port 22`，
 不是密钥问题，是本机 22 端口被 TUN 代理接管。改用 `ssh.github.com:443` 后正常。
+
+### 2026-11-10 · T23 通过，M4 解锁
+
+自刻 Audio CD（4 轨 / 21:10）在目标机上验证：
+
+- `cdparanoia -vsQ` 与 `-w` 均退出码 0，无读错、无重读；
+- 抓出的第 1 轨 44100 Hz / 2 ch / 16 bit，224.36 s，峰值 97.9%；
+- 脚本首轮误报「6.8 s 静音」，实为音轨尾部自带的静音，判据已修正为
+  「只看中段且几乎全为精确 0 才算可疑」。
+
+**T24 `RealCDBackend` 现在可以开工**——这是全项目最后一个高风险未知项。

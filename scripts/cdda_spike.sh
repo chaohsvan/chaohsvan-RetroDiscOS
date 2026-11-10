@@ -129,26 +129,48 @@ with wave.open(path, "rb") as wav:
 
 samples = struct.unpack("<%dh" % (len(data) // 2), data)
 peak = max(abs(s) for s in samples) if samples else 0
-silent_run = longest = 0
-for s in samples:
-    if abs(s) < 8:
-        silent_run += 1
-        longest = max(longest, silent_run)
-    else:
-        silent_run = 0
-
 duration = frames / rate if rate else 0
+
+mono = ([(samples[i] + samples[i + 1]) // 2 for i in range(0, len(samples) - 1, 2)]
+        if channels == 2 else list(samples))
+
+# Silence at the head or tail of a track is normal (lead-in / lead-out).
+# Silence in the middle of a track is not: a block of exact zeros there usually
+# means the drive filled a bad sector.
+threshold = 8
+runs = []
+start = 0
+for i, v in enumerate(mono):
+    if abs(v) >= threshold:
+        if i > start:
+            runs.append((start, i))
+        start = i + 1
+if len(mono) > start:
+    runs.append((start, len(mono)))
+
+min_len = rate * 0.25 if rate else 1
+suspicious = []
+for a, b in runs:
+    if (b - a) < min_len:
+        continue
+    if a == 0 or b >= len(mono) - 1:
+        continue
+    exact_zeros = sum(1 for v in mono[a:b] if v == 0)
+    suspicious.append((a / rate, (b - a) / rate, exact_zeros / float(b - a)))
+
 print(f"- format: {rate} Hz / {channels} ch / {width * 8} bit")
 print(f"- duration: {duration:.2f} s")
 print(f"- peak: {peak} ({peak / 32768 * 100:.1f} % of full scale)")
-print(f"- longest near-silent run: {longest / rate:.3f} s" if rate else "")
-threshold = rate * 0.05 if rate else 1
+
 if peak == 0:
     print("- **FAIL: track is digital silence**")
-elif longest > threshold:
-    print(f"- **WARN: a {(longest / rate):.3f} s silent gap looks like a read dropout**")
+elif suspicious:
+    where, length, ratio = max(suspicious, key=lambda r: r[1])
+    print(f"- **WARN: {length:.2f} s near-silence inside the track at {where:.2f} s "
+          f"({ratio * 100:.0f} % exact zeros)**")
+    print("  a mid-track block of exact zeros usually means the drive filled a bad sector")
 else:
-    print("- no suspicious silent gaps")
+    print("- no suspicious silent gaps (any silence sits at the head or tail of the track)")
 PY
     else
         say "- **FAIL: no WAV produced**"
